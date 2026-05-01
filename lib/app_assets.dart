@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 // ══════════════════════════════════════════════════════════
-// アセット定義
+// アセット定義_
 //
 // ファイル名規則: {カテゴリ}_{パターン番号}_{作者名}_{モデル名}.{拡張子}
 // 例: 全身頭身高_01_山田_太郎.png
@@ -9,9 +9,9 @@ import 'package:flutter/services.dart';
 // ══════════════════════════════════════════════════════════
 class AppAsset {
   final String path;
-  final String category;  // カテゴリ名
-  final String pattern;   // パターン番号
-  final String author;    // 作者名
+  final String category; // カテゴリ名
+  final String pattern; // パターン番号
+  final String author; // 作者名
   final String modelName; // モデル名
 
   const AppAsset({
@@ -85,9 +85,9 @@ class AppAssets {
         .where((p) =>
             p.startsWith('assets/model/') &&
             (p.endsWith('.png') ||
-             p.endsWith('.jpg') ||
-             p.endsWith('.jpeg') ||
-             p.endsWith('.webp')))
+                p.endsWith('.jpg') ||
+                p.endsWith('.jpeg') ||
+                p.endsWith('.webp')))
         .toList();
 
     final assets = paths.map(AppAsset.fromPath).toList();
