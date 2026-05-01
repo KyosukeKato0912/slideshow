@@ -9,9 +9,9 @@ import 'package:flutter/services.dart';
 // ══════════════════════════════════════════════════════════
 class AppAsset {
   final String path;
-  final String category; // カテゴリ名
-  final String pattern; // パターン番号
-  final String author; // 作者名
+  final String category;  // カテゴリ名
+  final String pattern;   // パターン番号
+  final String author;    // 作者名
   final String modelName; // モデル名
 
   const AppAsset({
@@ -80,21 +80,14 @@ class AppAssets {
   /// assets/model/ フォルダ内の画像を AssetManifest から動的に取得する。
   static Future<List<AppAsset>> load() async {
     final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-    final all = manifest.listAssets().toList();
-
-    // ← 追加：全パスをコンソールに出力
-    for (final p in all) {
-      print('ASSET: $p');
-    }
-
     final paths = manifest
         .listAssets()
         .where((p) =>
             p.startsWith('assets/model/') &&
             (p.endsWith('.png') ||
-                p.endsWith('.jpg') ||
-                p.endsWith('.jpeg') ||
-                p.endsWith('.webp')))
+             p.endsWith('.jpg') ||
+             p.endsWith('.jpeg') ||
+             p.endsWith('.webp')))
         .toList();
 
     final assets = paths.map(AppAsset.fromPath).toList();

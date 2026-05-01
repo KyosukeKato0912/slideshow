@@ -6,6 +6,20 @@ import 'app_assets.dart';
 import 'slideshow_settings_model.dart';
 
 // ══════════════════════════════════════════════════════════
+// ペアエントリ
+// 同じモデル名を持つアセットを「全身頭身高 → 全身頭身低」順にまとめた
+// 再生単位。単独の場合は assets.length == 1。
+// ══════════════════════════════════════════════════════════
+class _PairEntry {
+  final List<AppAsset> assets; // 全身頭身高が[0]、全身頭身低が[1]（あれば）
+
+  const _PairEntry(this.assets);
+
+  bool get hasPair => assets.length >= 2;
+  AppAsset get first => assets[0];
+}
+
+// ══════════════════════════════════════════════════════════
 // スライドショー画面
 // ══════════════════════════════════════════════════════════
 class SlideshowScreen extends StatefulWidget {
@@ -19,8 +33,19 @@ class SlideshowScreen extends StatefulWidget {
 
 class _SlideshowScreenState extends State<SlideshowScreen> {
   late final int _slideDurationSec;
-  late final List<AppAsset> _assets; // String → AppAsset に変更
   late final bool _loop;
+
+  // ── プレイリスト ────────────────────────────────────────
+  // ペア単位のリスト（シャッフルはペア単位で行う）
+  late final List<_PairEntry> _pairs;
+
+  // フラット展開した再生リスト（実際に表示する順序）
+  // ペア内は 全身頭身高→全身頭身低 固定。ペア間はシャッフル or 登録順。
+  late final List<AppAsset> _playlist;
+
+  // _playlist 上の各インデックスがペア内遷移かどうか
+  // true = 直前と同じモデル名（ペア内の2枚目）
+  late final List<bool> _isPairTransition;
 
   int _currentIndex = 0;
   bool _isPlaying = false;
@@ -29,10 +54,8 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   bool _isShowingLabel = false;
   int _countdown = 3;
 
-  // 残り時間管理
-  // 一時停止時は _pausedRemaining に保存し、再開時はそこから再スタートする
   int _remaining = 0;
-  int _pausedRemaining = 0; // 一時停止した瞬間の残り秒数
+  int _pausedRemaining = 0;
   DateTime? _slideStartTime;
 
   Timer? _countdownTimer;
@@ -40,16 +63,67 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   Timer? _remainingTimer;
   Timer? _labelTimer;
 
-  // AppAsset から直接各フィールドを取得（ロジック重複を排除）
-  AppAsset get _currentAsset => _assets[_currentIndex];
+  AppAsset get _currentAsset    => _playlist[_currentIndex];
   String get _currentModelName  => _currentAsset.modelName;
   String get _currentAuthor     => _currentAsset.author;
   String get _currentCategory   => _currentAsset.category;
+  bool get _currentIsPairTransition => _isPairTransition[_currentIndex];
 
   int get _computedRemaining {
     if (_slideStartTime == null) return _slideDurationSec;
     final elapsed = DateTime.now().difference(_slideStartTime!).inSeconds;
     return (_slideDurationSec - elapsed).clamp(0, _slideDurationSec);
+  }
+
+  // ── プレイリスト構築 ─────────────────────────────────────
+  // 1. モデル名でグループ化してペアを作る
+  // 2. ペア単位でシャッフル or 登録順を適用
+  // 3. ペア内は 全身頭身高→全身頭身低 の順に固定
+  // 4. フラットに展開してペア内遷移フラグを付与
+  static ({List<AppAsset> playlist, List<bool> isPairTransition})
+      _buildPlaylist(List<AppAsset> assets, bool shuffle) {
+    // カテゴリの優先順（ペア内の表示順）
+    const pairOrder = ['全身頭身高', '全身頭身低'];
+    int pairCategoryIndex(String cat) {
+      final i = pairOrder.indexOf(cat);
+      return i == -1 ? pairOrder.length : i;
+    }
+
+    // モデル名でグループ化
+    final Map<String, List<AppAsset>> grouped = {};
+    for (final a in assets) {
+      grouped.putIfAbsent(a.modelName, () => []).add(a);
+    }
+
+    // ペアエントリを生成（ペア内はカテゴリ順にソート）
+    final pairs = grouped.values.map((list) {
+      list.sort((a, b) =>
+          pairCategoryIndex(a.category).compareTo(pairCategoryIndex(b.category)));
+      return _PairEntry(list);
+    }).toList();
+
+    // ペア単位でシャッフル or 登録順（登録順は assets の出現順を維持）
+    if (shuffle) {
+      pairs.shuffle(Random());
+    } else {
+      // assets のソート順（= app_assets.dart のカテゴリ定義順）を維持するため
+      // 各ペアの先頭アセットの assets 内インデックスを基準にソート
+      final indexMap = {for (int i = 0; i < assets.length; i++) assets[i]: i};
+      pairs.sort((a, b) =>
+          (indexMap[a.first] ?? 0).compareTo(indexMap[b.first] ?? 0));
+    }
+
+    // フラットに展開してペア内遷移フラグを付与
+    final playlist = <AppAsset>[];
+    final isPairTransition = <bool>[];
+    for (final pair in pairs) {
+      for (int i = 0; i < pair.assets.length; i++) {
+        playlist.add(pair.assets[i]);
+        isPairTransition.add(i > 0); // 2枚目以降はペア内遷移
+      }
+    }
+
+    return (playlist: playlist, isPairTransition: isPairTransition);
   }
 
   @override
@@ -60,9 +134,12 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     _remaining = _slideDurationSec;
     _pausedRemaining = _slideDurationSec;
 
-    final assets = List<AppAsset>.from(widget.settings.selectedAssets);
-    if (widget.settings.shuffle) assets.shuffle(Random());
-    _assets = assets;
+    final result = _buildPlaylist(
+      widget.settings.selectedAssets,
+      widget.settings.shuffle,
+    );
+    _playlist = result.playlist;
+    _isPairTransition = result.isPairTransition;
 
     _startCountdown();
   }
@@ -84,7 +161,6 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   }
 
   // ── 残り時間タイマーを指定秒数からリセット・再開 ─────────
-  // [from] を省略した場合は _slideDurationSec から始める
   void _restartRemainingTimer({int? from}) {
     _remainingTimer?.cancel();
     final startSec = from ?? _slideDurationSec;
@@ -99,9 +175,14 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     });
   }
 
-  // ── モデル名を0.5秒表示してからスライドショー開始 ────────
-  void _showLabelThenStart() {
+  // ── ラベル表示してからスライドショー開始 ────────────────
+  // ペア内遷移の場合はラベルを表示せず即スタート
+  void _showLabelThenStart({bool skipLabel = false}) {
     _labelTimer?.cancel();
+    if (skipLabel) {
+      _startSlideshow();
+      return;
+    }
     setState(() => _isShowingLabel = true);
     _labelTimer = Timer(const Duration(milliseconds: 500), () {
       if (!mounted) return;
@@ -121,14 +202,15 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     );
   }
 
-  // ── スライドを1枚進める（終端処理を含む） ───────────────
+  // ── スライドを1枚進める ──────────────────────────────────
   void _advanceSlide() {
-    final isLast = _currentIndex >= _assets.length - 1;
+    final isLast = _currentIndex >= _playlist.length - 1;
 
     if (isLast) {
       if (_loop) {
         setState(() => _currentIndex = 0);
         _slideshowTimer?.cancel();
+        // ループ先頭はペア内遷移ではないのでラベルあり
         _showLabelThenStart();
       } else {
         _slideshowTimer?.cancel();
@@ -144,23 +226,23 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
 
     setState(() => _currentIndex++);
     _slideshowTimer?.cancel();
-    _showLabelThenStart();
+    // 次がペア内遷移ならラベルをスキップ
+    _showLabelThenStart(skipLabel: _currentIsPairTransition);
   }
 
   // ── 一時停止 ───────────────────────────────────────────
   void _pause() {
     _slideshowTimer?.cancel();
     _remainingTimer?.cancel();
-    _pausedRemaining = _remaining; // 残り秒数を保存
+    _pausedRemaining = _remaining;
     setState(() => _isPlaying = false);
   }
 
-  // ── 再開（一時停止した残り秒数から再スタート） ────────────
+  // ── 再開 ───────────────────────────────────────────────
   void _resume() {
     setState(() => _isPlaying = true);
     _restartRemainingTimer(from: _pausedRemaining);
 
-    // 残り秒数ぴったりのワンショットタイマーで次のスライドへ
     _slideshowTimer?.cancel();
     _slideshowTimer = Timer(
       Duration(seconds: _pausedRemaining),
@@ -183,23 +265,26 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     _showLabelThenStart();
   }
 
-  // ── 前の画像（タイマーを安全にリセットしてから移動） ──────
+  // ── 前の画像 ───────────────────────────────────────────
   void _prev() {
     if (_currentIndex <= 0) return;
-    _slideshowTimer?.cancel(); // 二重起動防止
+    _slideshowTimer?.cancel();
     setState(() => _currentIndex--);
-    if (_isPlaying) {
-      _showLabelThenStart();
-    }
+    if (_isPlaying) _showLabelThenStart(skipLabel: _currentIsPairTransition);
   }
 
-  // ── 次の画像（タイマーを安全にリセットしてから移動） ──────
+  // ── 次の画像 ───────────────────────────────────────────
   void _next() {
-    if (_currentIndex >= _assets.length - 1) return;
-    _slideshowTimer?.cancel(); // 二重起動防止
-    setState(() => _currentIndex++);
-    if (_isPlaying) {
-      _showLabelThenStart();
+    final isLast = _currentIndex >= _playlist.length - 1;
+    if (isLast && !_loop) return;
+    _slideshowTimer?.cancel();
+    if (isLast && _loop) {
+      // ループ時は先頭に戻る
+      setState(() => _currentIndex = 0);
+      if (_isPlaying) _showLabelThenStart();
+    } else {
+      setState(() => _currentIndex++);
+      if (_isPlaying) _showLabelThenStart(skipLabel: _currentIsPairTransition);
     }
   }
 
@@ -215,7 +300,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isFirst = _currentIndex == 0;
-    final bool isLast = !_loop && _currentIndex == _assets.length - 1;
+    final bool isLast = !_loop && _currentIndex == _playlist.length - 1;
 
     return Scaffold(
       appBar: AppBarHelper.build(context, 'X秒ドローイング', Colors.purple),
@@ -231,19 +316,18 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                       : _isShowingLabel
                           ? _buildModelNameLabel()
                           : Image.asset(
-                              _assets[_currentIndex].path,
+                              _currentAsset.path,
                               fit: BoxFit.contain,
                             ),
             ),
           ),
 
           if (!_isCounting && !_isFinished) ...[
-            // ── ファイル名表示 ────────────────────────────
+            // ── 情報表示エリア ────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Column(
                 children: [
-                  // カテゴリ・モデル名・作者名
                   Text(
                     _currentCategory,
                     style: TextStyle(
@@ -271,16 +355,15 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                       ),
                     ),
                   ],
-                  // ループ・シャッフルバッジ
                   if (_loop || widget.settings.shuffle) ...[
                     const SizedBox(height: 6),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (_loop) _StatusBadge(icon: Icons.repeat, label: 'ループ'),
+                        if (_loop) const _StatusBadge(icon: Icons.repeat, label: 'ループ'),
                         if (_loop && widget.settings.shuffle) const SizedBox(width: 8),
                         if (widget.settings.shuffle)
-                          _StatusBadge(icon: Icons.shuffle, label: 'シャッフル'),
+                          const _StatusBadge(icon: Icons.shuffle, label: 'シャッフル'),
                       ],
                     ),
                   ],
@@ -293,30 +376,33 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
 
             const SizedBox(height: 12),
 
-            // ── ページ数テキスト（ドットは多枚数でオーバーフローするため廃止） ──
+            // ── ページ数 ────────────────────────────────────
             Text(
-              '${_currentIndex + 1} / ${_assets.length}',
+              '${_currentIndex + 1} / ${_playlist.length}',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 6),
 
-            // ── ドットインジケーター（20枚以下のときのみ表示） ──
-            if (_assets.length <= 20)
+            // ── ドットインジケーター（20枚以下のみ） ──────────
+            if (_playlist.length <= 20)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: List.generate(
-                    _assets.length,
+                    _playlist.length,
                     (i) => AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       width: i == _currentIndex ? 20 : 8,
                       height: 8,
                       decoration: BoxDecoration(
+                        // ペア内の画像は少し薄い色で区別
                         color: i == _currentIndex
                             ? Colors.purple
-                            : Colors.purple.shade200,
+                            : _isPairTransition[i]
+                                ? Colors.purple.shade100
+                                : Colors.purple.shade200,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -373,22 +459,11 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     );
   }
 
+  // ── 0.5秒表示ラベル（モデル名のみ・カテゴリなし） ─────────
   Widget _buildModelNameLabel() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // カテゴリ名
-        Text(
-          _currentCategory,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w500,
-            color: Colors.purple.shade300,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        // モデル名（メイン）
         Text(
           _currentModelName,
           style: const TextStyle(
@@ -398,7 +473,6 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
           ),
           textAlign: TextAlign.center,
         ),
-        // 作者名
         if (_currentAuthor.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
@@ -429,7 +503,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          '全 ${_assets.length} 枚 完了',
+          '全 ${_playlist.length} 枚 完了',
           style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 48),
@@ -437,10 +511,9 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.purple,
             foregroundColor: Colors.white,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: _restart,
           icon: const Icon(Icons.replay),

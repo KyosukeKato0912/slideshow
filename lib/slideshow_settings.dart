@@ -3,6 +3,7 @@ import 'main.dart' show AppBarHelper;
 import 'app_assets.dart';
 import 'slideshow_settings_model.dart';
 import 'slideshow_screen.dart';
+import 'settings_repository.dart';
 
 export 'slideshow_settings_model.dart';
 
@@ -30,42 +31,60 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
       _selectedCategories.length == _categories.length;
   bool get _canStart => _selectedCategories.isNotEmpty;
 
-  /// 選択カテゴリに属するアセットのリスト
   List<AppAsset> get _selectedAssets => _allAssets
       .where((e) => _selectedCategories.contains(e.category))
       .toList();
 
-  // ── アセット読み込みを initState で行い、build() 内の副作用を排除 ──
   @override
   void initState() {
     super.initState();
-    _loadAssets();
+    _loadAssetsAndSettings();
   }
 
-  Future<void> _loadAssets() async {
+  Future<void> _loadAssetsAndSettings() async {
     try {
-      final assets = await AppAssets.load();
+      // アセットと保存済み設定を並行取得
+      final results = await Future.wait([
+        AppAssets.load(),
+        SettingsRepository.load(),
+      ]);
+
       if (!mounted) return;
+
+      final assets = results[0] as List<AppAsset>;
+      final saved  = results[1] as SavedSettings?;
+
       setState(() {
-        _allAssets = assets;
-        _categories = AppAssets.categories(assets);
-        _selectedCategories = Set.of(_categories); // 初期は全カテゴリ選択
+        _allAssets   = assets;
+        _categories  = AppAssets.categories(assets);
+
+        if (saved != null) {
+          // 保存済み設定を復元（存在しないカテゴリは除外）
+          _slideDurationSec    = saved.slideDurationSec;
+          _loop                = saved.loop;
+          _shuffle             = saved.shuffle;
+          final validCategories = saved.selectedCategories
+              .where(_categories.contains)
+              .toSet();
+          _selectedCategories = validCategories.isNotEmpty
+              ? validCategories
+              : Set.of(_categories);
+        } else {
+          _selectedCategories = Set.of(_categories);
+        }
       });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('画像の読み込みに失敗しました: $e')),
+        SnackBar(content: Text('読み込みに失敗しました: $e')),
       );
     }
   }
 
   void _toggleAllCategories(bool select) {
     setState(() {
-      if (select) {
-        _selectedCategories = Set.of(_categories);
-      } else {
-        _selectedCategories.clear();
-      }
+      _selectedCategories =
+          select ? Set.of(_categories) : {};
     });
   }
 
@@ -79,12 +98,22 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
     });
   }
 
-  void _startSlideshow() {
+  Future<void> _startSlideshow() async {
+    // 設定を保存してからスライドショーへ
+    await SettingsRepository.save(
+      slideDurationSec:    _slideDurationSec,
+      loop:                _loop,
+      shuffle:             _shuffle,
+      selectedCategories:  _selectedCategories.toList(),
+    );
+
+    if (!mounted) return;
+
     final settings = SlideshowSettings(
       slideDurationSec: _slideDurationSec,
-      selectedAssets: _selectedAssets, // List<AppAsset> を渡す
-      loop: _loop,
-      shuffle: _shuffle,
+      selectedAssets:   _selectedAssets,
+      loop:             _loop,
+      shuffle:          _shuffle,
     );
     Navigator.push(
       context,
@@ -218,7 +247,6 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // すべて選択
                       Row(
                         children: [
                           Checkbox(
@@ -237,13 +265,11 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
                             '${_selectedCategories.length} / ${_categories.length} カテゴリ'
                             '  （${_selectedAssets.length} 枚）',
                             style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500),
+                                fontSize: 12, color: Colors.grey.shade500),
                           ),
                         ],
                       ),
                       const Divider(),
-                      // カテゴリごとのチェックボックス
                       ..._categories.map((category) {
                         final selected =
                             _selectedCategories.contains(category);
@@ -271,7 +297,6 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
 
                 const SizedBox(height: 24),
 
-                // ── 開始ボタン ────────────────────────────────
                 if (!_canStart)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 8),
