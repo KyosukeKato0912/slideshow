@@ -1,21 +1,10 @@
 import 'package:flutter/material.dart';
-import 'main.dart' show buildAppBar;
+import 'main.dart' show AppBarHelper;
+import 'app_assets.dart';
+import 'slideshow_settings_model.dart';
 import 'slideshow_screen.dart';
 
-// ══════════════════════════════════════════════════════════
-// スライドショー設定データクラス
-// ══════════════════════════════════════════════════════════
-class SlideshowSettings {
-  final int slideDurationSec;
-  final List<String> selectedImages;
-  final bool loop;
-
-  const SlideshowSettings({
-    required this.slideDurationSec,
-    required this.selectedImages,
-    this.loop = false,
-  });
-}
+export 'slideshow_settings_model.dart';
 
 // ══════════════════════════════════════════════════════════
 // スライドショー設定画面
@@ -29,59 +18,74 @@ class SlideshowSettingsScreen extends StatefulWidget {
 }
 
 class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
-  static const List<Map<String, String>> _allImages = [
-    {'path': 'assets/START.png', 'label': 'START'},
-    {'path': 'assets/A.png', 'label': 'A'},
-    {'path': 'assets/B.png', 'label': 'B'},
-    {'path': 'assets/C.png', 'label': 'C'},
-    {'path': 'assets/END.png', 'label': 'END'},
-  ];
+  List<AppAsset> _allAssets = [];
+  List<String> _categories = [];
+  Set<String> _selectedCategories = {};
 
   int _slideDurationSec = 5;
   bool _loop = false;
-  final Set<String> _selectedPaths = {
-    'assets/START.png',
-    'assets/A.png',
-    'assets/B.png',
-    'assets/C.png',
-    'assets/END.png',
-  };
+  bool _shuffle = true;
 
-  bool get _allSelected => _selectedPaths.length == _allImages.length;
-  bool get _canStart => _selectedPaths.isNotEmpty;
+  bool get _allCategoriesSelected =>
+      _selectedCategories.length == _categories.length;
+  bool get _canStart => _selectedCategories.isNotEmpty;
 
-  void _toggleAll(bool select) {
+  /// 選択カテゴリに属するアセットのリスト
+  List<AppAsset> get _selectedAssets => _allAssets
+      .where((e) => _selectedCategories.contains(e.category))
+      .toList();
+
+  // ── アセット読み込みを initState で行い、build() 内の副作用を排除 ──
+  @override
+  void initState() {
+    super.initState();
+    _loadAssets();
+  }
+
+  Future<void> _loadAssets() async {
+    try {
+      final assets = await AppAssets.load();
+      if (!mounted) return;
+      setState(() {
+        _allAssets = assets;
+        _categories = AppAssets.categories(assets);
+        _selectedCategories = Set.of(_categories); // 初期は全カテゴリ選択
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('画像の読み込みに失敗しました: $e')),
+      );
+    }
+  }
+
+  void _toggleAllCategories(bool select) {
     setState(() {
       if (select) {
-        _selectedPaths.addAll(_allImages.map((e) => e['path']!));
+        _selectedCategories = Set.of(_categories);
       } else {
-        _selectedPaths.clear();
+        _selectedCategories.clear();
       }
     });
   }
 
-  void _toggleImage(String path) {
+  void _toggleCategory(String category) {
     setState(() {
-      if (_selectedPaths.contains(path)) {
-        _selectedPaths.remove(path);
+      if (_selectedCategories.contains(category)) {
+        _selectedCategories.remove(category);
       } else {
-        _selectedPaths.add(path);
+        _selectedCategories.add(category);
       }
     });
   }
 
   void _startSlideshow() {
-    final ordered = _allImages
-        .map((e) => e['path']!)
-        .where((p) => _selectedPaths.contains(p))
-        .toList();
-
     final settings = SlideshowSettings(
       slideDurationSec: _slideDurationSec,
-      selectedImages: ordered,
+      selectedAssets: _selectedAssets, // List<AppAsset> を渡す
       loop: _loop,
+      shuffle: _shuffle,
     );
-
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => SlideshowScreen(settings: settings)),
@@ -91,171 +95,211 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: buildAppBar(context, 'スライドショー設定', Colors.purple),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          // ── 切り替え時間 ────────────────────────────────
-          _SectionCard(
-            title: '⏱ 画像切り替え時間',
-            child: Column(
+      appBar: AppBarHelper.build(context, 'X秒ドローイング設定', Colors.purple),
+      body: _allAssets.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(24),
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      onPressed: _slideDurationSec > 1
-                          ? () => setState(() => _slideDurationSec--)
-                          : null,
-                      icon: const Icon(Icons.remove_circle_outline),
-                      color: Colors.purple,
-                      iconSize: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '$_slideDurationSec 秒',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.purple,
+                // ── 切り替え時間 ──────────────────────────────
+                _SectionCard(
+                  title: '⏱ 画像切り替え時間',
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _slideDurationSec > 1
+                                ? () => setState(() => _slideDurationSec--)
+                                : null,
+                            icon: const Icon(Icons.remove_circle_outline),
+                            color: Colors.purple,
+                            iconSize: 32,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '$_slideDurationSec 秒',
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.purple,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            onPressed: _slideDurationSec < 30
+                                ? () => setState(() => _slideDurationSec++)
+                                : null,
+                            icon: const Icon(Icons.add_circle_outline),
+                            color: Colors.purple,
+                            iconSize: 32,
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: _slideDurationSec < 30
-                          ? () => setState(() => _slideDurationSec++)
-                          : null,
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: Colors.purple,
-                      iconSize: 32,
-                    ),
-                  ],
+                      Slider(
+                        value: _slideDurationSec.toDouble(),
+                        min: 1,
+                        max: 30,
+                        divisions: 29,
+                        activeColor: Colors.purple,
+                        label: '$_slideDurationSec 秒',
+                        onChanged: (v) =>
+                            setState(() => _slideDurationSec = v.round()),
+                      ),
+                      Text(
+                        '1秒〜30秒の範囲で設定できます',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
                 ),
-                Slider(
-                  value: _slideDurationSec.toDouble(),
-                  min: 1,
-                  max: 30,
-                  divisions: 29,
-                  activeColor: Colors.purple,
-                  label: '$_slideDurationSec 秒',
-                  onChanged: (v) =>
-                      setState(() => _slideDurationSec = v.round()),
-                ),
-                Text(
-                  '1秒〜30秒の範囲で設定できます',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          ),
 
-          const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-          // ── ループ設定 ──────────────────────────────────
-          _SectionCard(
-            title: '🔁 ループ再生',
-            child: SwitchListTile(
-              value: _loop,
-              activeColor: Colors.purple,
-              onChanged: (v) => setState(() => _loop = v),
-              title: Text(
-                _loop ? 'ループあり' : 'ループなし',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              subtitle: Text(
-                _loop ? '最後の画像の後、最初に戻って繰り返します' : '最後の画像で停止します',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-              ),
-              secondary: Icon(
-                _loop ? Icons.repeat : Icons.trending_flat,
-                color: _loop ? Colors.purple : Colors.grey,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── 表示画像選択 ────────────────────────────────
-          _SectionCard(
-            title: '🖼 表示する画像',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _allSelected,
-                      tristate: true,
-                      activeColor: Colors.purple,
-                      onChanged: (_) => _toggleAll(!_allSelected),
-                    ),
-                    const Text(
-                      'すべて選択',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${_selectedPaths.length} / ${_allImages.length} 枚',
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                ..._allImages.map((img) {
-                  final path = img['path']!;
-                  final label = img['label']!;
-                  final selected = _selectedPaths.contains(path);
-                  return CheckboxListTile(
-                    value: selected,
+                // ── ループ設定 ────────────────────────────────
+                _SectionCard(
+                  title: '🔁 ループ再生',
+                  child: SwitchListTile(
+                    value: _loop,
                     activeColor: Colors.purple,
-                    title: Text(label),
+                    onChanged: (v) => setState(() => _loop = v),
+                    title: Text(
+                      _loop ? 'ループあり' : 'ループなし',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
                     subtitle: Text(
-                      path,
-                      style: const TextStyle(fontSize: 11),
+                      _loop
+                          ? '最後の画像の後、最初に戻って繰り返します'
+                          : '最後の画像で停止します',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade500),
                     ),
                     secondary: Icon(
-                      Icons.image_outlined,
-                      color: selected ? Colors.purple : Colors.grey,
+                      _loop ? Icons.repeat : Icons.trending_flat,
+                      color: _loop ? Colors.purple : Colors.grey,
                     ),
-                    onChanged: (_) => _toggleImage(path),
-                  );
-                }),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── 再生順序 ──────────────────────────────────
+                _SectionCard(
+                  title: '🔀 再生順序',
+                  child: SwitchListTile(
+                    value: _shuffle,
+                    activeColor: Colors.purple,
+                    onChanged: (v) => setState(() => _shuffle = v),
+                    title: Text(
+                      _shuffle ? 'ランダム順' : '登録順',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(
+                      _shuffle
+                          ? '画像をランダムな順番で再生します'
+                          : '画像を登録された順番で再生します',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade500),
+                    ),
+                    secondary: Icon(
+                      _shuffle ? Icons.shuffle : Icons.sort,
+                      color: _shuffle ? Colors.purple : Colors.grey,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── カテゴリ選択 ──────────────────────────────
+                _SectionCard(
+                  title: '🗂 表示するカテゴリ',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // すべて選択
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _allCategoriesSelected,
+                            tristate: true,
+                            activeColor: Colors.purple,
+                            onChanged: (_) =>
+                                _toggleAllCategories(!_allCategoriesSelected),
+                          ),
+                          const Text(
+                            'すべて選択',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${_selectedCategories.length} / ${_categories.length} カテゴリ'
+                            '  （${_selectedAssets.length} 枚）',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                      const Divider(),
+                      // カテゴリごとのチェックボックス
+                      ..._categories.map((category) {
+                        final selected =
+                            _selectedCategories.contains(category);
+                        final count = _allAssets
+                            .where((e) => e.category == category)
+                            .length;
+                        return CheckboxListTile(
+                          value: selected,
+                          activeColor: Colors.purple,
+                          title: Text(category),
+                          subtitle: Text(
+                            '$count 枚',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          secondary: Icon(
+                            Icons.folder_outlined,
+                            color: selected ? Colors.purple : Colors.grey,
+                          ),
+                          onChanged: (_) => _toggleCategory(category),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // ── 開始ボタン ────────────────────────────────
+                if (!_canStart)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '⚠ カテゴリを1つ以上選択してください',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _canStart ? Colors.purple : Colors.grey,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _canStart ? _startSlideshow : null,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('X秒ドローイングを開始',
+                      style: TextStyle(fontSize: 16)),
+                ),
               ],
             ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── 開始ボタン ──────────────────────────────────
-          if (!_canStart)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text(
-                '⚠ 画像を1枚以上選択してください',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.red, fontSize: 13),
-              ),
-            ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _canStart ? Colors.purple : Colors.grey,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: _canStart ? _startSlideshow : null,
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('スライドショーを開始', style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
     );
   }
 }
 
-// ── セクションカード共通ウィジェット ──────────────────────
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;

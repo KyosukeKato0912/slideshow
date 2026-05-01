@@ -1,16 +1,7 @@
 import 'package:flutter/material.dart';
-import 'main.dart' show buildAppBar;
+import 'main.dart' show AppBarHelper;
+import 'app_assets.dart';
 import 'image_viewer_screen.dart';
-
-// ══════════════════════════════════════════════════════════
-// 画像情報データクラス
-// ══════════════════════════════════════════════════════════
-class ImageItem {
-  final String path;
-  final String label;
-
-  const ImageItem({required this.path, required this.label});
-}
 
 // ══════════════════════════════════════════════════════════
 // 画像一覧画面
@@ -23,127 +14,213 @@ class ImageListScreen extends StatefulWidget {
 }
 
 class _ImageListScreenState extends State<ImageListScreen> {
-  // assetに登録されているすべての画像
-  static const List<ImageItem> _allImages = [
-    ImageItem(path: 'assets/START.png', label: 'START'),
-    ImageItem(path: 'assets/A.png', label: 'A'),
-    ImageItem(path: 'assets/B.png', label: 'B'),
-    ImageItem(path: 'assets/C.png', label: 'C'),
-    ImageItem(path: 'assets/END.png', label: 'END'),
-  ];
+  late final Future<List<AppAsset>> _assetsFuture;
+  final TextEditingController _modelSearchController = TextEditingController();
 
-  final TextEditingController _searchController = TextEditingController();
-  List<ImageItem> _filtered = List.of(_allImages);
+  List<AppAsset> _all = [];
+  List<String> _categories = [];
+  String? _selectedCategory; // null = すべて
+  List<AppAsset> _filtered = [];
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_onSearchChanged);
+    _assetsFuture = AppAssets.load();
+    _modelSearchController.addListener(_onFilterChanged);
   }
 
-  void _onSearchChanged() {
-    final query = _searchController.text.trim().toLowerCase();
+  void _onAllLoaded(List<AppAsset> assets) {
+    _all = assets;
+    _categories = AppAssets.categories(assets);
+    _onFilterChanged();
+  }
+
+  void _onFilterChanged() {
+    final query = _modelSearchController.text.trim().toLowerCase();
     setState(() {
-      _filtered = query.isEmpty
-          ? List.of(_allImages)
-          : _allImages
-              .where((img) => img.label.toLowerCase().contains(query))
-              .toList();
+      _filtered = _all.where((img) {
+        final categoryMatch =
+            _selectedCategory == null || img.category == _selectedCategory;
+        final modelMatch =
+            query.isEmpty || img.modelName.toLowerCase().contains(query);
+        return categoryMatch && modelMatch;
+      }).toList();
     });
   }
 
+  void _clearFilters() {
+    setState(() => _selectedCategory = null);
+    _modelSearchController.clear();
+  }
+
+  bool get _hasFilter =>
+      _selectedCategory != null || _modelSearchController.text.isNotEmpty;
+
   @override
   void dispose() {
-    _searchController.dispose();
+    _modelSearchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: buildAppBar(context, '画像一覧', Colors.purple),
-      body: Column(
-        children: [
-          // ── 検索バー ──────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: '画像名で検索...',
-                prefixIcon: const Icon(Icons.search, color: Colors.purple),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.purple, width: 2),
-                ),
-                isDense: true,
-              ),
-            ),
-          ),
+      appBar: AppBarHelper.build(context, '画像一覧', Colors.purple),
+      body: FutureBuilder<List<AppAsset>>(
+        future: _assetsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('画像の読み込みに失敗しました\n${snapshot.error}',
+                  textAlign: TextAlign.center),
+            );
+          }
 
-          // ── 件数表示 ──────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              children: [
-                Text(
-                  '${_filtered.length} 件',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                if (_searchController.text.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    '（"${_searchController.text}" の検索結果）',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          final assets = snapshot.data!;
+          if (_all.isEmpty && assets.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _onAllLoaded(assets);
+            });
+          }
 
-          // ── サムネイルグリッド ────────────────────────────
-          Expanded(
-            child: _filtered.isEmpty
-                ? _buildEmptyState()
-                : GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.0,
-                    ),
-                    itemCount: _filtered.length,
-                    itemBuilder: (context, index) {
-                      final img = _filtered[index];
-                      return _ThumbnailCard(
-                        item: img,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ImageViewerScreen(
-                              imagePath: img.path,
-                              imageLabel: img.label,
-                            ),
-                          ),
+          return Column(
+            children: [
+              // ── 検索エリア ──────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Column(
+                  children: [
+                    // カテゴリプルダウン
+                    DropdownButtonFormField<String?>(
+                      value: _selectedCategory,
+                      decoration: InputDecoration(
+                        labelText: 'カテゴリ',
+                        prefixIcon: const Icon(Icons.folder_outlined,
+                            color: Colors.purple),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Colors.purple, width: 2),
                         ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('すべて'),
+                        ),
+                        ..._categories.map((c) => DropdownMenuItem(
+                              value: c,
+                              child: Text(c),
+                            )),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedCategory = value);
+                        _onFilterChanged();
+                      },
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // モデル名自由入力
+                    TextField(
+                      controller: _modelSearchController,
+                      decoration: InputDecoration(
+                        labelText: 'モデル名',
+                        hintText: 'モデル名で絞り込み...',
+                        prefixIcon:
+                            const Icon(Icons.search, color: Colors.purple),
+                        suffixIcon: _modelSearchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: _modelSearchController.clear,
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Colors.purple, width: 2),
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── 件数 ＋ フィルタークリア ────────────────────
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      '${_filtered.length} 件',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                    const Spacer(),
+                    if (_hasFilter)
+                      TextButton.icon(
+                        onPressed: _clearFilters,
+                        icon: const Icon(Icons.filter_alt_off, size: 14),
+                        label: const Text('フィルターをクリア',
+                            style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.purple,
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // ── サムネイルグリッド ──────────────────────────
+              Expanded(
+                child: _filtered.isEmpty
+                    ? _buildEmptyState()
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.0,
+                        ),
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, index) {
+                          final asset = _filtered[index];
+                          return _ThumbnailCard(
+                            asset: asset,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ImageViewerScreen(
+                                  imagePath: asset.path,
+                                  imageLabel: asset.modelName,
+                                  author: asset.author,
+                                  category: asset.category,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -156,7 +233,7 @@ class _ImageListScreenState extends State<ImageListScreen> {
           Icon(Icons.image_search, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            '「${_searchController.text}」に一致する画像が見つかりません',
+            _hasFilter ? '条件に一致する画像が見つかりません' : '画像が見つかりません',
             style: TextStyle(color: Colors.grey.shade500),
             textAlign: TextAlign.center,
           ),
@@ -170,10 +247,10 @@ class _ImageListScreenState extends State<ImageListScreen> {
 // サムネイルカード
 // ══════════════════════════════════════════════════════════
 class _ThumbnailCard extends StatelessWidget {
-  final ImageItem item;
+  final AppAsset asset;
   final VoidCallback onTap;
 
-  const _ThumbnailCard({required this.item, required this.onTap});
+  const _ThumbnailCard({required this.asset, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -186,12 +263,11 @@ class _ThumbnailCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // サムネイル画像
             Expanded(
               child: Container(
                 color: Colors.grey.shade100,
                 child: Image.asset(
-                  item.path,
+                  asset.path,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Center(
                     child: Icon(
@@ -203,26 +279,71 @@ class _ThumbnailCard extends StatelessWidget {
                 ),
               ),
             ),
-            // ラベル
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               color: Colors.white,
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.image_outlined,
-                      size: 14, color: Colors.purple),
-                  const SizedBox(width: 4),
-                  Expanded(
+                  // カテゴリバッジ
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     child: Text(
-                      item.label,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      asset.category,
+                      style: TextStyle(
+                          fontSize: 10, color: Colors.purple.shade700),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.open_in_full, size: 12, color: Colors.grey),
+                  const SizedBox(height: 2),
+                  // モデル名
+                  Row(
+                    children: [
+                      const Icon(Icons.person_outline,
+                          size: 13, color: Colors.purple),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          asset.modelName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(Icons.open_in_full,
+                          size: 11, color: Colors.grey),
+                    ],
+                  ),
+                  // 作者名
+                  if (asset.author.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        children: [
+                          Icon(Icons.brush_outlined,
+                              size: 11, color: Colors.grey.shade500),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              '作者：${asset.author}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),

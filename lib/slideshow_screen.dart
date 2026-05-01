@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'main.dart' show buildAppBar;
-import 'slideshow_settings.dart' show SlideshowSettings;
+import 'main.dart' show AppBarHelper;
+import 'app_assets.dart';
+import 'slideshow_settings_model.dart';
 
 // ══════════════════════════════════════════════════════════
 // スライドショー画面
@@ -17,28 +19,51 @@ class SlideshowScreen extends StatefulWidget {
 
 class _SlideshowScreenState extends State<SlideshowScreen> {
   late final int _slideDurationSec;
-  late final List<String> _imagePaths;
+  late final List<AppAsset> _assets; // String → AppAsset に変更
   late final bool _loop;
 
   int _currentIndex = 0;
   bool _isPlaying = false;
   bool _isCounting = true;
+  bool _isFinished = false;
+  bool _isShowingLabel = false;
   int _countdown = 3;
+
+  // 残り時間管理
+  // 一時停止時は _pausedRemaining に保存し、再開時はそこから再スタートする
   int _remaining = 0;
+  int _pausedRemaining = 0; // 一時停止した瞬間の残り秒数
+  DateTime? _slideStartTime;
 
   Timer? _countdownTimer;
   Timer? _slideshowTimer;
   Timer? _remainingTimer;
+  Timer? _labelTimer;
 
-  String get _currentFileName => _imagePaths[_currentIndex].split('/').last;
+  // AppAsset から直接各フィールドを取得（ロジック重複を排除）
+  AppAsset get _currentAsset => _assets[_currentIndex];
+  String get _currentModelName  => _currentAsset.modelName;
+  String get _currentAuthor     => _currentAsset.author;
+  String get _currentCategory   => _currentAsset.category;
+
+  int get _computedRemaining {
+    if (_slideStartTime == null) return _slideDurationSec;
+    final elapsed = DateTime.now().difference(_slideStartTime!).inSeconds;
+    return (_slideDurationSec - elapsed).clamp(0, _slideDurationSec);
+  }
 
   @override
   void initState() {
     super.initState();
     _slideDurationSec = widget.settings.slideDurationSec;
-    _imagePaths = widget.settings.selectedImages;
     _loop = widget.settings.loop;
     _remaining = _slideDurationSec;
+    _pausedRemaining = _slideDurationSec;
+
+    final assets = List<AppAsset>.from(widget.settings.selectedAssets);
+    if (widget.settings.shuffle) assets.shuffle(Random());
+    _assets = assets;
+
     _startCountdown();
   }
 
@@ -50,103 +75,132 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
         setState(() {
           _isCounting = false;
           _isPlaying = true;
-          _remaining = _slideDurationSec;
         });
-        _startSlideshow();
+        _showLabelThenStart();
       } else {
         setState(() => _countdown--);
       }
     });
   }
 
-  // ── スライドショー開始 ──────────────────────────────────
-  void _startSlideshow() {
-    _slideshowTimer?.cancel();
+  // ── 残り時間タイマーを指定秒数からリセット・再開 ─────────
+  // [from] を省略した場合は _slideDurationSec から始める
+  void _restartRemainingTimer({int? from}) {
     _remainingTimer?.cancel();
-
-    setState(() => _remaining = _slideDurationSec);
+    final startSec = from ?? _slideDurationSec;
+    _slideStartTime = DateTime.now().subtract(
+      Duration(seconds: _slideDurationSec - startSec),
+    );
+    setState(() => _remaining = startSec);
 
     _remainingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() {
-        if (_remaining > 1) _remaining--;
-      });
+      setState(() => _remaining = _computedRemaining);
     });
+  }
+
+  // ── モデル名を0.5秒表示してからスライドショー開始 ────────
+  void _showLabelThenStart() {
+    _labelTimer?.cancel();
+    setState(() => _isShowingLabel = true);
+    _labelTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      setState(() => _isShowingLabel = false);
+      _startSlideshow();
+    });
+  }
+
+  // ── スライドショー開始（フル秒数から） ──────────────────
+  void _startSlideshow() {
+    _slideshowTimer?.cancel();
+    _restartRemainingTimer();
 
     _slideshowTimer = Timer.periodic(
       Duration(seconds: _slideDurationSec),
-      (timer) {
-        final isLast = _currentIndex >= _imagePaths.length - 1;
+      (_) => _advanceSlide(),
+    );
+  }
 
-        if (isLast) {
-          if (_loop) {
-            // ループあり：最初に戻る
-            _remainingTimer?.cancel();
-            setState(() {
-              _currentIndex = 0;
-              _remaining = _slideDurationSec;
-            });
-            _remainingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-              if (!mounted) return;
-              setState(() {
-                if (_remaining > 1) _remaining--;
-              });
-            });
-          } else {
-            // ループなし：停止
-            timer.cancel();
-            _remainingTimer?.cancel();
-            setState(() {
-              _isPlaying = false;
-              _remaining = 0;
-            });
-          }
-          return;
-        }
+  // ── スライドを1枚進める（終端処理を含む） ───────────────
+  void _advanceSlide() {
+    final isLast = _currentIndex >= _assets.length - 1;
 
-        // 通常の次画像への切り替え
+    if (isLast) {
+      if (_loop) {
+        setState(() => _currentIndex = 0);
+        _slideshowTimer?.cancel();
+        _showLabelThenStart();
+      } else {
+        _slideshowTimer?.cancel();
         _remainingTimer?.cancel();
         setState(() {
-          _currentIndex++;
-          _remaining = _slideDurationSec;
+          _isPlaying = false;
+          _remaining = 0;
+          _isFinished = true;
         });
-        _remainingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-          if (!mounted) return;
-          setState(() {
-            if (_remaining > 1) _remaining--;
-          });
-        });
-      },
-    );
+      }
+      return;
+    }
+
+    setState(() => _currentIndex++);
+    _slideshowTimer?.cancel();
+    _showLabelThenStart();
   }
 
   // ── 一時停止 ───────────────────────────────────────────
   void _pause() {
     _slideshowTimer?.cancel();
     _remainingTimer?.cancel();
+    _pausedRemaining = _remaining; // 残り秒数を保存
     setState(() => _isPlaying = false);
   }
 
-  // ── 再開 ───────────────────────────────────────────────
+  // ── 再開（一時停止した残り秒数から再スタート） ────────────
   void _resume() {
-    // ループなしの場合は最後の画像で再開不可
-    if (!_loop && _currentIndex >= _imagePaths.length - 1) return;
     setState(() => _isPlaying = true);
-    _startSlideshow();
+    _restartRemainingTimer(from: _pausedRemaining);
+
+    // 残り秒数ぴったりのワンショットタイマーで次のスライドへ
+    _slideshowTimer?.cancel();
+    _slideshowTimer = Timer(
+      Duration(seconds: _pausedRemaining),
+      () {
+        if (!mounted) return;
+        _advanceSlide();
+      },
+    );
   }
 
-  // ── 前の画像 ───────────────────────────────────────────
+  // ── 最初から ───────────────────────────────────────────
+  void _restart() {
+    _slideshowTimer?.cancel();
+    _remainingTimer?.cancel();
+    setState(() {
+      _currentIndex = 0;
+      _isFinished = false;
+      _isPlaying = true;
+    });
+    _showLabelThenStart();
+  }
+
+  // ── 前の画像（タイマーを安全にリセットしてから移動） ──────
   void _prev() {
     if (_currentIndex <= 0) return;
+    _slideshowTimer?.cancel(); // 二重起動防止
     setState(() => _currentIndex--);
-    if (_isPlaying) _startSlideshow();
+    if (_isPlaying) {
+      _showLabelThenStart();
+    }
   }
 
-  // ── 次の画像 ───────────────────────────────────────────
+  // ── 次の画像（タイマーを安全にリセットしてから移動） ──────
   void _next() {
-    if (_currentIndex >= _imagePaths.length - 1) return;
+    if (_currentIndex >= _assets.length - 1) return;
+    _slideshowTimer?.cancel(); // 二重起動防止
     setState(() => _currentIndex++);
-    if (_isPlaying) _startSlideshow();
+    if (_isPlaying) {
+      _showLabelThenStart();
+    }
   }
 
   @override
@@ -154,17 +208,17 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     _countdownTimer?.cancel();
     _slideshowTimer?.cancel();
     _remainingTimer?.cancel();
+    _labelTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final bool isFirst = _currentIndex == 0;
-    // ループありの場合は最後の画像でも停止扱いにしない
-    final bool isLast = !_loop && _currentIndex == _imagePaths.length - 1;
+    final bool isLast = !_loop && _currentIndex == _assets.length - 1;
 
     return Scaffold(
-      appBar: buildAppBar(context, 'スライドショー', Colors.purple),
+      appBar: AppBarHelper.build(context, 'X秒ドローイング', Colors.purple),
       body: Column(
         children: [
           // ── 画像表示エリア ────────────────────────────────
@@ -172,52 +226,62 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
             child: Center(
               child: _isCounting
                   ? _buildStartCountdown()
-                  : Image.asset(
-                      _imagePaths[_currentIndex],
-                      fit: BoxFit.contain,
-                    ),
+                  : _isFinished
+                      ? _buildEndScreen()
+                      : _isShowingLabel
+                          ? _buildModelNameLabel()
+                          : Image.asset(
+                              _assets[_currentIndex].path,
+                              fit: BoxFit.contain,
+                            ),
             ),
           ),
 
-          if (!_isCounting) ...[
+          if (!_isCounting && !_isFinished) ...[
             // ── ファイル名表示 ────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
                 children: [
-                  const Icon(Icons.insert_drive_file_outlined,
-                      size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
+                  // カテゴリ・モデル名・作者名
                   Text(
-                    _currentFileName,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                      fontFamily: 'monospace',
+                    _currentCategory,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.purple.shade300,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  // ループバッジ
-                  if (_loop) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.shade50,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.purple.shade200),
+                  const SizedBox(height: 2),
+                  Text(
+                    _currentModelName,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (_currentAuthor.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '作者：$_currentAuthor',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.repeat, size: 11, color: Colors.purple),
-                          SizedBox(width: 2),
-                          Text('ループ',
-                              style: TextStyle(
-                                  fontSize: 10, color: Colors.purple)),
-                        ],
-                      ),
+                    ),
+                  ],
+                  // ループ・シャッフルバッジ
+                  if (_loop || widget.settings.shuffle) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_loop) _StatusBadge(icon: Icons.repeat, label: 'ループ'),
+                        if (_loop && widget.settings.shuffle) const SizedBox(width: 8),
+                        if (widget.settings.shuffle)
+                          _StatusBadge(icon: Icons.shuffle, label: 'シャッフル'),
+                      ],
                     ),
                   ],
                 ],
@@ -225,34 +289,40 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
             ),
 
             // ── 残り時間バー ────────────────────────────────
-            _buildRemainingTimer(isLast),
+            _buildRemainingTimer(),
 
             const SizedBox(height: 12),
 
-            // ── ドットインジケーター ────────────────────────
+            // ── ページ数テキスト（ドットは多枚数でオーバーフローするため廃止） ──
             Text(
-              '${_currentIndex + 1} / ${_imagePaths.length}',
+              '${_currentIndex + 1} / ${_assets.length}',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _imagePaths.length,
-                (i) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: i == _currentIndex ? 20 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: i == _currentIndex
-                        ? Colors.purple
-                        : Colors.purple.shade200,
-                    borderRadius: BorderRadius.circular(4),
+
+            // ── ドットインジケーター（20枚以下のときのみ表示） ──
+            if (_assets.length <= 20)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: List.generate(
+                    _assets.length,
+                    (i) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: i == _currentIndex ? 20 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: i == _currentIndex
+                            ? Colors.purple
+                            : Colors.purple.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
 
             // ── コントロールボタン ──────────────────────────
             Padding(
@@ -273,11 +343,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                   ),
                   const SizedBox(width: 16),
                   IconButton.filled(
-                    onPressed: isLast ? null : (_isPlaying ? _pause : _resume),
+                    onPressed: _isPlaying ? _pause : _resume,
                     icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
                     style: IconButton.styleFrom(
-                      backgroundColor:
-                          isLast ? Colors.grey.shade300 : Colors.purple,
+                      backgroundColor: Colors.purple,
                       foregroundColor: Colors.white,
                       iconSize: 36,
                       padding: const EdgeInsets.all(14),
@@ -301,6 +370,83 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildModelNameLabel() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // カテゴリ名
+        Text(
+          _currentCategory,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w500,
+            color: Colors.purple.shade300,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        // モデル名（メイン）
+        Text(
+          _currentModelName,
+          style: const TextStyle(
+            fontSize: 48,
+            fontWeight: FontWeight.bold,
+            color: Colors.purple,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        // 作者名
+        if (_currentAuthor.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            '作者：$_currentAuthor',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEndScreen() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          'END',
+          style: TextStyle(
+            fontSize: 80,
+            fontWeight: FontWeight.bold,
+            color: Colors.purple,
+            letterSpacing: 8,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '全 ${_assets.length} 枚 完了',
+          style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 48),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.purple,
+            foregroundColor: Colors.white,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+          onPressed: _restart,
+          icon: const Icon(Icons.replay),
+          label: const Text('最初から', style: TextStyle(fontSize: 16)),
+        ),
+      ],
     );
   }
 
@@ -330,7 +476,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     );
   }
 
-  Widget _buildRemainingTimer(bool isLast) {
+  Widget _buildRemainingTimer() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -339,11 +485,11 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                isLast ? '最後の画像です' : (_isPlaying ? '次の画像まで' : '一時停止中'),
+                _isPlaying ? '次の画像まで' : '一時停止中',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
               Text(
-                isLast ? '' : '$_remaining 秒',
+                '$_remaining 秒',
                 style: const TextStyle(
                   fontSize: 12,
                   color: Colors.purple,
@@ -356,14 +502,43 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: isLast
-                  ? 1.0
-                  : ((_slideDurationSec - _remaining) / _slideDurationSec),
+              value: (_slideDurationSec - _remaining) / _slideDurationSec,
               minHeight: 8,
               backgroundColor: Colors.purple.shade100,
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.purple),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// ステータスバッジ（ループ・シャッフル表示用）
+// ══════════════════════════════════════════════════════════
+class _StatusBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _StatusBadge({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade50,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.purple.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: Colors.purple),
+          const SizedBox(width: 2),
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: Colors.purple)),
         ],
       ),
     );

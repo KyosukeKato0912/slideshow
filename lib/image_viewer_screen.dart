@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
-import 'main.dart' show buildAppBar;
 
 // ══════════════════════════════════════════════════════════
 // 画像全体表示画面
 // ══════════════════════════════════════════════════════════
 class ImageViewerScreen extends StatelessWidget {
   final String imagePath;
-  final String imageLabel;
+  final String imageLabel;  // モデル名
+  final String author;      // 作者名
+  final String category;    // カテゴリ名
 
   const ImageViewerScreen({
     super.key,
     required this.imagePath,
     required this.imageLabel,
+    this.author = '',
+    this.category = '',
   });
 
   @override
@@ -21,7 +24,25 @@ class ImageViewerScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(imageLabel),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (category.isNotEmpty)
+              Text(
+                category,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.purple.shade200,
+                ),
+              ),
+            Text(imageLabel, style: const TextStyle(fontSize: 16)),
+            if (author.isNotEmpty)
+              Text(
+                '作者：$author',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+              ),
+          ],
+        ),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
