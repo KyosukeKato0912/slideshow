@@ -77,8 +77,14 @@ int _categoryIndex(String category) {
 class AppAssets {
   AppAssets._();
 
+  // ロード結果をキャッシュし、複数画面からの二重呼び出しを防ぐ
+  static Future<List<AppAsset>>? _cache;
+
   /// assets/model/ フォルダ内の画像を AssetManifest から動的に取得する。
-  static Future<List<AppAsset>> load() async {
+  /// 2回目以降はキャッシュを返す。
+  static Future<List<AppAsset>> load() => _cache ??= _loadInternal();
+
+  static Future<List<AppAsset>> _loadInternal() async {
     final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
     final paths = manifest
         .listAssets()

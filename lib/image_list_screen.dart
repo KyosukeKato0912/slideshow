@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'main.dart' show AppBarHelper;
+import 'app_bar_helper.dart';
 import 'app_assets.dart';
 import 'image_viewer_screen.dart';
 
 // ══════════════════════════════════════════════════════════
-// 画像一覧画面
+// モデル一覧画面
 // ══════════════════════════════════════════════════════════
 class ImageListScreen extends StatefulWidget {
   const ImageListScreen({super.key});
@@ -26,6 +26,9 @@ class _ImageListScreenState extends State<ImageListScreen> {
   void initState() {
     super.initState();
     _assetsFuture = AppAssets.load();
+    _assetsFuture.then((assets) {
+      if (mounted) _onAllLoaded(assets);
+    });
     _modelSearchController.addListener(_onFilterChanged);
   }
 
@@ -65,7 +68,7 @@ class _ImageListScreenState extends State<ImageListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBarHelper.build(context, '画像一覧', Colors.purple),
+      appBar: AppBarHelper.build(context, 'X秒ドローイングモデル一覧', Colors.purple),
       body: FutureBuilder<List<AppAsset>>(
         future: _assetsFuture,
         builder: (context, snapshot) {
@@ -80,11 +83,6 @@ class _ImageListScreenState extends State<ImageListScreen> {
           }
 
           final assets = snapshot.data!;
-          if (_all.isEmpty && assets.isNotEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _onAllLoaded(assets);
-            });
-          }
 
           return Column(
             children: [
@@ -207,10 +205,8 @@ class _ImageListScreenState extends State<ImageListScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => ImageViewerScreen(
-                                  imagePath: asset.path,
-                                  imageLabel: asset.modelName,
-                                  author: asset.author,
-                                  category: asset.category,
+                                  initialAsset: asset,
+                                  allAssets:    _all,
                                 ),
                               ),
                             ),

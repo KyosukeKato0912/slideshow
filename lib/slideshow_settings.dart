@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'main.dart' show AppBarHelper;
+import 'app_bar_helper.dart';
 import 'app_assets.dart';
 import 'slideshow_settings_model.dart';
 import 'slideshow_screen.dart';
@@ -19,17 +19,33 @@ class SlideshowSettingsScreen extends StatefulWidget {
 }
 
 class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
+  // ══════════════════════════════════════════════════════
+  // 画像切り替え時間の設定定数
+  // ここを書き換えるだけで下限・上限・ステップが変わります
+  // ══════════════════════════════════════════════════════
+  static const int _durationMin  = 30;   // 下限（秒）
+  static const int _durationMax  = 600;  // 上限（秒）
+  static const int _durationStep = 30;   // 変更単位（秒）
+
   List<AppAsset> _allAssets = [];
   List<String> _categories = [];
   Set<String> _selectedCategories = {};
 
-  int _slideDurationSec = 5;
+  int _slideDurationSec = SettingsRepository.defaultSlideDurationSec;
   bool _loop = false;
   bool _shuffle = true;
 
   bool get _allCategoriesSelected =>
       _selectedCategories.length == _categories.length;
   bool get _canStart => _selectedCategories.isNotEmpty;
+
+  /// 秒数を「X秒」または「X分Y秒」に整形する
+  static String _formatDuration(int sec) {
+    if (sec < 60) return '$sec 秒';
+    final m = sec ~/ 60;
+    final s = sec % 60;
+    return s == 0 ? '$m 分' : '$m 分 $s 秒';
+  }
 
   List<AppAsset> get _selectedAssets => _allAssets
       .where((e) => _selectedCategories.contains(e.category))
@@ -100,13 +116,7 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
 
   Future<void> _startSlideshow() async {
     // 設定を保存してからスライドショーへ
-    await SettingsRepository.save(
-      slideDurationSec:    _slideDurationSec,
-      loop:                _loop,
-      shuffle:             _shuffle,
-      selectedCategories:  _selectedCategories.toList(),
-    );
-
+    await _saveSettings();
     if (!mounted) return;
 
     final settings = SlideshowSettings(
@@ -121,10 +131,84 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
     );
   }
 
+  /// 設定を保存する（スライドショー開始せずに保存のみ）
+  Future<void> _saveSettings() async {
+    await SettingsRepository.save(
+      slideDurationSec:   _slideDurationSec,
+      loop:               _loop,
+      shuffle:            _shuffle,
+      selectedCategories: _selectedCategories.toList(),
+    );
+  }
+
+  /// 設定を保存してスナックバーで通知する
+  Future<void> _saveSettingsOnly() async {
+    await _saveSettings();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('設定を保存しました'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// 設定を初期値に戻す
+  Future<void> _resetToDefaults() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('設定を初期値に戻す'),
+        content: const Text('すべての設定をデフォルト値に戻します。よろしいですか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('リセット'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await SettingsRepository.clear();
+    if (!mounted) return;
+
+    setState(() {
+      _slideDurationSec   = SettingsRepository.defaultSlideDurationSec;
+      _loop               = SettingsRepository.defaultLoop;
+      _shuffle            = SettingsRepository.defaultShuffle;
+      _selectedCategories = Set.of(_categories); // 全カテゴリ選択
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('設定を初期値に戻しました')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBarHelper.build(context, 'X秒ドローイング設定', Colors.purple),
+      appBar: AppBar(
+        backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
+        title: const Text('X秒ドローイング設定'),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            tooltip: '初期値に戻す',
+            icon: const Icon(Icons.restart_alt),
+            onPressed: _allAssets.isEmpty ? null : _resetToDefaults,
+          ),
+        ],
+      ),
       body: _allAssets.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -139,8 +223,9 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           IconButton(
-                            onPressed: _slideDurationSec > 1
-                                ? () => setState(() => _slideDurationSec--)
+                            onPressed: _slideDurationSec > _durationMin
+                                ? () => setState(() =>
+                                    _slideDurationSec -= _durationStep)
                                 : null,
                             icon: const Icon(Icons.remove_circle_outline),
                             color: Colors.purple,
@@ -148,7 +233,7 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            '$_slideDurationSec 秒',
+                            _formatDuration(_slideDurationSec),
                             style: const TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
@@ -157,8 +242,9 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
                           ),
                           const SizedBox(width: 12),
                           IconButton(
-                            onPressed: _slideDurationSec < 30
-                                ? () => setState(() => _slideDurationSec++)
+                            onPressed: _slideDurationSec < _durationMax
+                                ? () => setState(() =>
+                                    _slideDurationSec += _durationStep)
                                 : null,
                             icon: const Icon(Icons.add_circle_outline),
                             color: Colors.purple,
@@ -168,16 +254,18 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
                       ),
                       Slider(
                         value: _slideDurationSec.toDouble(),
-                        min: 1,
-                        max: 30,
-                        divisions: 29,
+                        min: _durationMin.toDouble(),
+                        max: _durationMax.toDouble(),
+                        divisions: (_durationMax - _durationMin) ~/ _durationStep,
                         activeColor: Colors.purple,
-                        label: '$_slideDurationSec 秒',
-                        onChanged: (v) =>
-                            setState(() => _slideDurationSec = v.round()),
+                        label: _formatDuration(_slideDurationSec),
+                        onChanged: (v) => setState(() =>
+                            _slideDurationSec =
+                                (v.round() ~/ _durationStep) * _durationStep),
                       ),
                       Text(
-                        '1秒〜30秒の範囲で設定できます',
+                        '${_formatDuration(_durationMin)}〜${_formatDuration(_durationMax)}'
+                        '（${_formatDuration(_durationStep)}単位）',
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey.shade500),
                       ),
@@ -306,19 +394,49 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
                       style: TextStyle(color: Colors.red, fontSize: 13),
                     ),
                   ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _canStart ? Colors.purple : Colors.grey,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: _canStart ? _startSlideshow : null,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('X秒ドローイングを開始',
-                      style: TextStyle(fontSize: 16)),
+                // ── 保存 ／ 開始（左右配置） ─────────────────
+                Row(
+                  children: [
+                    // 左：保存
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.purple,
+                          side: const BorderSide(color: Colors.purple),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: _saveSettingsOnly,
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('保存',
+                            style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    // 右：開始
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              _canStart ? Colors.purple : Colors.grey,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: _canStart ? _startSlideshow : null,
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('開始',
+                            style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                  ],
                 ),
+
+                const SizedBox(height: 8),
               ],
             ),
     );

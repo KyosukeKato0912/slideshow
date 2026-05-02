@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_bar_helper.dart';
 import 'slideshow_ready_screen.dart';
 
 void main() {
@@ -32,26 +33,6 @@ class _FeatureFlags {
   static const bool growthRecord   = false; // 成長記録
   static const bool habitSupport   = false; // 習慣化サポート
   static const bool proArtistTips  = false; // プロ絵師解説
-}
-
-// ══════════════════════════════════════════════════════════
-// 共通：AppBar ヘルパー（トップレベル関数から静的メソッドに変更）
-// ══════════════════════════════════════════════════════════
-class AppBarHelper {
-  AppBarHelper._();
-
-  static AppBar build(BuildContext context, String title, Color color) {
-    return AppBar(
-      backgroundColor: color,
-      foregroundColor: Colors.white,
-      title: Text(title),
-      centerTitle: true,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.pop(context),
-      ),
-    );
-  }
 }
 
 // ══════════════════════════════════════════════════════════
