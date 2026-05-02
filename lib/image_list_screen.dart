@@ -84,11 +84,15 @@ class _ImageListScreenState extends State<ImageListScreen> {
 
           final assets = snapshot.data!;
 
-          return Column(
-            children: [
-              // ── 検索エリア ──────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          return LayoutBuilder(
+            builder: (context, outerConstraints) {
+              final double outerPad =
+                  (outerConstraints.maxWidth * 0.2).clamp(4.0, 240.0);
+              return Column(
+                children: [
+                  // ── 検索エリア ──────────────────────────────────
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(outerPad, 12, outerPad, 4),
                 child: Column(
                   children: [
                     // カテゴリプルダウン
@@ -155,10 +159,10 @@ class _ImageListScreenState extends State<ImageListScreen> {
                 ),
               ),
 
-              // ── 件数 ＋ フィルタークリア ────────────────────
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  // ── 件数 ＋ フィルタークリア ────────────────────
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: outerPad, vertical: 4),
                 child: Row(
                   children: [
                     Text(
@@ -183,38 +187,51 @@ class _ImageListScreenState extends State<ImageListScreen> {
                 ),
               ),
 
-              // ── サムネイルグリッド ──────────────────────────
-              Expanded(
-                child: _filtered.isEmpty
-                    ? _buildEmptyState()
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(12),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1.0,
-                        ),
-                        itemCount: _filtered.length,
-                        itemBuilder: (context, index) {
-                          final asset = _filtered[index];
-                          return _ThumbnailCard(
-                            asset: asset,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ImageViewerScreen(
-                                  initialAsset: asset,
-                                  allAssets:    _all,
+                  // ── サムネイルグリッド ──────────────────────────
+                  Expanded(
+                    child: _filtered.isEmpty
+                        ? _buildEmptyState()
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              const double minPanelWidth = 320.0;
+                              final int crossAxisCount =
+                                  (constraints.maxWidth / minPanelWidth)
+                                      .floor()
+                                      .clamp(2, 8);
+
+                              return GridView.builder(
+                                padding: EdgeInsets.fromLTRB(
+                                    outerPad, 12, outerPad, 12),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 1.0,
                                 ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
+                                itemCount: _filtered.length,
+                                itemBuilder: (context, index) {
+                                  final asset = _filtered[index];
+                                  return _ThumbnailCard(
+                                    asset: asset,
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ImageViewerScreen(
+                                          initialAsset: asset,
+                                          allAssets: _all,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),

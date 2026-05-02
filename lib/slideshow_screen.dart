@@ -63,10 +63,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   Timer? _remainingTimer;
   Timer? _labelTimer;
 
-  AppAsset get _currentAsset    => _playlist[_currentIndex];
-  String get _currentModelName  => _currentAsset.modelName;
-  String get _currentAuthor     => _currentAsset.author;
-  String get _currentCategory   => _currentAsset.category;
+  AppAsset get _currentAsset => _playlist[_currentIndex];
+  String get _currentModelName => _currentAsset.modelName;
+  String get _currentAuthor => _currentAsset.author;
+  String get _currentCategory => _currentAsset.category;
   bool get _currentIsPairTransition => _isPairTransition[_currentIndex];
 
   int get _computedRemaining {
@@ -97,8 +97,8 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
 
     // ペアエントリを生成（ペア内はカテゴリ順にソート）
     final pairs = grouped.values.map((list) {
-      list.sort((a, b) =>
-          pairCategoryIndex(a.category).compareTo(pairCategoryIndex(b.category)));
+      list.sort((a, b) => pairCategoryIndex(a.category)
+          .compareTo(pairCategoryIndex(b.category)));
       return _PairEntry(list);
     }).toList();
 
@@ -109,8 +109,8 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
       // assets のソート順（= app_assets.dart のカテゴリ定義順）を維持するため
       // 各ペアの先頭アセットの assets 内インデックスを基準にソート
       final indexMap = {for (int i = 0; i < assets.length; i++) assets[i]: i};
-      pairs.sort((a, b) =>
-          (indexMap[a.first] ?? 0).compareTo(indexMap[b.first] ?? 0));
+      pairs.sort(
+          (a, b) => (indexMap[a.first] ?? 0).compareTo(indexMap[b.first] ?? 0));
     }
 
     // フラットに展開してペア内遷移フラグを付与
@@ -314,23 +314,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
       appBar: AppBarHelper.build(context, 'X秒ドローイング', Colors.purple),
       body: Column(
         children: [
-          // ── 情報・カウントダウン行（画像の外・上段） ────────
-          if (!_isCounting && !_isFinished && !_isShowingLabel)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 左：カテゴリ・モデル名・作者・バッジ
-                  Expanded(child: _buildInfoOverlay()),
-                  const SizedBox(width: 8),
-                  // 右：円形カウントダウン
-                  _buildCircularCountdown(),
-                ],
-              ),
-            ),
-
-          // ── 画像表示エリア ───────────────────────────────
+          // ── 画像表示エリア（情報・カウントダウンはオーバーレイ） ──
           Expanded(
             child: _isCounting
                 ? Center(child: _buildStartCountdown())
@@ -338,11 +322,75 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                     ? Center(child: _buildEndScreen())
                     : _isShowingLabel
                         ? Center(child: _buildModelNameLabel())
-                        : Center(
-                            child: Image.asset(
-                              _currentAsset.path,
-                              fit: BoxFit.contain,
-                            ),
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final double areaW = constraints.maxWidth;
+                              final double areaH = constraints.maxHeight;
+
+                              // ── パネルサイズ ──────────────────────────────
+                              // 帯幅：全体幅の 10%。最小80・最大160px。
+                              final double panelW =
+                                  (areaW * 0.10).clamp(80.0, 160.0);
+                              // タイマー：帯幅の 75%
+                              final double timerSize =
+                                  (panelW * 0.75).clamp(60.0, 120.0);
+
+                              // ── 余白 ─────────────────────────────────────
+                              // 外余白（帯の外側）：全体幅の 2%。最小8・最大24px。
+                              final double outerPad =
+                                  (areaW * 0.2).clamp(4.0, 240.0);
+                              // 内余白（帯と画像の間）：全体幅の 1.5%。最小6・最大16px。
+                              final double innerPad =
+                                  (areaW * 0.015).clamp(6.0, 16.0);
+
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // 外余白（左）
+                                  SizedBox(width: outerPad),
+                                  // ── 左帯：情報パネル ──────────────────
+                                  SizedBox(
+                                    width: panelW,
+                                    height: areaH,
+                                    child: Align(
+                                      alignment: Alignment.topCenter,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child:
+                                            _buildInfoOverlay(panelW: panelW),
+                                      ),
+                                    ),
+                                  ),
+                                  // 内余白（左パネル〜画像）
+                                  SizedBox(width: innerPad),
+                                  // ── 中央：画像 ───────────────────────
+                                  Expanded(
+                                    child: Image.asset(
+                                      _currentAsset.path,
+                                      fit: BoxFit.contain,
+                                      height: areaH,
+                                    ),
+                                  ),
+                                  // 内余白（画像〜右パネル）
+                                  SizedBox(width: innerPad),
+                                  // ── 右帯：タイマー ────────────────────
+                                  SizedBox(
+                                    width: panelW,
+                                    height: areaH,
+                                    child: Align(
+                                      alignment: Alignment.topCenter,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: _buildCircularCountdown(
+                                            size: timerSize),
+                                      ),
+                                    ),
+                                  ),
+                                  // 外余白（右）
+                                  SizedBox(width: outerPad),
+                                ],
+                              );
+                            },
                           ),
           ),
 
@@ -360,7 +408,8 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
             if (_playlist.length <= 20)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Row(
                   children: List.generate(
                     _playlist.length,
@@ -431,66 +480,113 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     );
   }
 
-  // ── 左上オーバーレイ：カテゴリ・モデル名・作者・バッジ ──
-  Widget _buildInfoOverlay() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // カテゴリ
-        Text(
-          _currentCategory,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.purple.shade400,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 2),
-        // モデル名
-        Text(
-          _currentModelName,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        // 作者
-        if (_currentAuthor.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            '作者：$_currentAuthor',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade600,
+  // ── 左帯：カテゴリ・モデル名・作者・バッジ ──────────────
+  // panelW: 帯の幅px。フォントサイズはこれを基準にする。
+  Widget _buildInfoOverlay({required double panelW}) {
+    // 帯幅の割合でフォントサイズを決定
+    final double catFontSize = (panelW * 0.12).clamp(9.0, 15.0);
+    final double nameFontSize = (panelW * 0.16).clamp(11.0, 20.0);
+    final double authFontSize = (panelW * 0.12).clamp(9.0, 15.0);
+    final double badgeFontSize = (panelW * 0.10).clamp(8.0, 13.0);
+    final double badgeIconSize = (panelW * 0.12).clamp(9.0, 14.0);
+    final double spacing = (panelW * 0.03).clamp(2.0, 5.0);
+    final double badgeSpacing = (panelW * 0.04).clamp(3.0, 6.0);
+    // 帯内に収めるための最大幅（左右 4px ずつパディング）
+    final double maxTextW = panelW - 8;
+
+    return SizedBox(
+      width: panelW,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // カテゴリ
+            SizedBox(
+              width: maxTextW,
+              child: Text(
+                _currentCategory,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: catFontSize,
+                  color: Colors.purple.shade400,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-        ],
-        // ループ・シャッフルバッジ
-        if (_loop || widget.settings.shuffle) ...[
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_loop) const _StatusBadge(icon: Icons.repeat, label: 'ループ'),
-              if (_loop && widget.settings.shuffle) const SizedBox(width: 6),
-              if (widget.settings.shuffle)
-                const _StatusBadge(icon: Icons.shuffle, label: 'シャッフル'),
+            SizedBox(height: spacing),
+            // モデル名
+            SizedBox(
+              width: maxTextW,
+              child: Text(
+                _currentModelName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: nameFontSize,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            // 作者
+            if (_currentAuthor.isNotEmpty) ...[
+              SizedBox(height: spacing),
+              SizedBox(
+                width: maxTextW,
+                child: Text(
+                  '作者：$_currentAuthor',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: authFontSize,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
             ],
-          ),
-        ],
-      ],
+            // ループ・シャッフルバッジ
+            if (_loop || widget.settings.shuffle) ...[
+              SizedBox(height: spacing * 2),
+              Wrap(
+                spacing: badgeSpacing,
+                runSpacing: badgeSpacing,
+                children: [
+                  if (_loop)
+                    _StatusBadge(
+                      icon: Icons.repeat,
+                      label: 'ループ',
+                      fontSize: badgeFontSize,
+                      iconSize: badgeIconSize,
+                    ),
+                  if (widget.settings.shuffle)
+                    _StatusBadge(
+                      icon: Icons.shuffle,
+                      label: 'シャッフル',
+                      fontSize: badgeFontSize,
+                      iconSize: badgeIconSize,
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
   // ── 右上オーバーレイ：円形カウントダウン ──────────────
-  Widget _buildCircularCountdown() {
-    const double size = 72;
-    final double progress = _slideDurationSec > 0
-        ? _remaining / _slideDurationSec
-        : 0.0;
+  // size: 円のpxサイズ（LayoutBuilderから渡される）
+  Widget _buildCircularCountdown({required double size}) {
+    final double progress =
+        _slideDurationSec > 0 ? _remaining / _slideDurationSec : 0.0;
     final bool paused = !_isPlaying;
+
+    final double strokeWidth = (size * 0.07).clamp(4.0, 8.0);
+    final double numFontSize = (size * 0.30).clamp(18.0, 36.0);
+    final double labelFontSize = (size * 0.13).clamp(9.0, 15.0);
 
     return SizedBox(
       width: size,
@@ -509,7 +605,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
           // 円形プログレスバー
           CircularProgressIndicator(
             value: progress,
-            strokeWidth: 5,
+            strokeWidth: strokeWidth,
             backgroundColor: Colors.purple.shade100,
             valueColor: AlwaysStoppedAnimation<Color>(
               paused ? Colors.grey.shade400 : Colors.purple,
@@ -523,7 +619,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                 Text(
                   '$_remaining',
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: numFontSize,
                     fontWeight: FontWeight.bold,
                     color: paused ? Colors.grey.shade500 : Colors.purple,
                     height: 1.0,
@@ -532,8 +628,9 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                 Text(
                   paused ? '停止' : '秒',
                   style: TextStyle(
-                    fontSize: 10,
-                    color: paused ? Colors.grey.shade400 : Colors.purple.shade300,
+                    fontSize: labelFontSize,
+                    color:
+                        paused ? Colors.grey.shade400 : Colors.purple.shade300,
                   ),
                 ),
               ],
@@ -625,8 +722,15 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
 class _StatusBadge extends StatelessWidget {
   final IconData icon;
   final String label;
+  final double fontSize;
+  final double iconSize;
 
-  const _StatusBadge({required this.icon, required this.label});
+  const _StatusBadge({
+    required this.icon,
+    required this.label,
+    this.fontSize = 10,
+    this.iconSize = 11,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -640,10 +744,10 @@ class _StatusBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: Colors.purple),
+          Icon(icon, size: iconSize, color: Colors.purple),
           const SizedBox(width: 2),
           Text(label,
-              style: const TextStyle(fontSize: 10, color: Colors.purple)),
+              style: TextStyle(fontSize: fontSize, color: Colors.purple)),
         ],
       ),
     );

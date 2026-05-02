@@ -115,9 +115,15 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
   }
 
   Future<void> _startSlideshow() async {
-    // 設定を保存してからスライドショーへ
+    // 設定を保存してスナックバーで通知してからスライドショーへ
     await _saveSettings();
     if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('設定を保存しました'),
+        duration: Duration(seconds: 2),
+      ),
+    );
 
     final settings = SlideshowSettings(
       slideDurationSec: _slideDurationSec,
@@ -211,8 +217,12 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
       ),
       body: _allAssets.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(24),
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final double outerPad =
+                    (constraints.maxWidth * 0.2).clamp(4.0, 240.0);
+                return ListView(
+                  padding: EdgeInsets.fromLTRB(outerPad, 24, outerPad, 24),
               children: [
                 // ── 切り替え時間 ──────────────────────────────
                 _SectionCard(
@@ -429,7 +439,7 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
                         ),
                         onPressed: _canStart ? _startSlideshow : null,
                         icon: const Icon(Icons.play_arrow),
-                        label: const Text('開始',
+                        label: const Text('保存して開始',
                             style: TextStyle(fontSize: 16)),
                       ),
                     ),
@@ -438,7 +448,9 @@ class _SlideshowSettingsScreenState extends State<SlideshowSettingsScreen> {
 
                 const SizedBox(height: 8),
               ],
-            ),
+            );
+          },
+        ),
     );
   }
 }

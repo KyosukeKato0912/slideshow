@@ -95,10 +95,14 @@ class _SlideshowReadyScreenState extends State<SlideshowReadyScreen> {
 
           final data = snapshot.data;
 
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final double outerPad =
+                  (constraints.maxWidth * 0.2).clamp(4.0, 240.0);
+              return Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: outerPad, vertical: 32),
+                  child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.slideshow, size: 100, color: Colors.purple),
@@ -201,6 +205,8 @@ class _SlideshowReadyScreenState extends State<SlideshowReadyScreen> {
               ),
             ),
           );
+        },
+      );
         },
       ),
     );

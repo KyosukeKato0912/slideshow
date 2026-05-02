@@ -49,12 +49,16 @@ class HomePage extends StatelessWidget {
         title: const Text('ホーム画面'),
         centerTitle: true,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final double outerPad =
+              (constraints.maxWidth * 0.2).clamp(4.0, 240.0);
+          return Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: outerPad, vertical: 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _NavButton(
                 label: 'X秒ドローイング',
@@ -109,6 +113,8 @@ class HomePage extends StatelessWidget {
             ],
           ),
         ),
+      );
+        },
       ),
     );
   }
