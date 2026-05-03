@@ -1,58 +1,64 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'app_bar_helper.dart';
-import 'app_assets.dart';
-import 'slideshow_settings_model.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/app_values.dart';
+import '../../../shared/components/app_bar_widget.dart';
+import '../domain/drawing_model.dart';
+import '../domain/drawing_settings.dart';
 
 // ══════════════════════════════════════════════════════════
 // ペアエントリ
-// 同じモデル名を持つアセットを「全身頭身高 → 全身頭身低」順にまとめた
-// 再生単位。単独の場合は assets.length == 1。
+//
+// 同じモデル名を持つアセットを「ベーシック(6頭身) → デフォルメ(2頭身)」順にまとめた
+// 再生単位。単独の場合は models.length == 1。
 // ══════════════════════════════════════════════════════════
 class _PairEntry {
-  final List<AppAsset> assets; // 全身頭身高が[0]、全身頭身低が[1]（あれば）
+  /// ペア内のモデルリスト（ベーシック(6頭身)が[0]、デフォルメ(2頭身)が[1]）
+  final List<DrawingModel> models;
 
-  const _PairEntry(this.assets);
+  const _PairEntry(this.models);
 
-  bool get hasPair => assets.length >= 2;
-  AppAsset get first => assets[0];
+  bool get hasPair => models.length >= 2;
+  DrawingModel get first => models[0];
 }
 
 // ══════════════════════════════════════════════════════════
-// スライドショー画面
+// X秒ドローイング メイン画面
+//
+// タイマーカウントダウン・ポーズ自動切り替えを行う本体画面。
+// ── コントロール ──
+//   [前へ]  前のモデルに戻る（最初のモデルでは非活性）
+//   [一時停止/再開]  タイマーを停止・再開する
+//   [次へ]  次のモデルに進む（ループなし・最後のモデルでは非活性）
 // ══════════════════════════════════════════════════════════
-class SlideshowScreen extends StatefulWidget {
-  final SlideshowSettings settings;
+class DrawingMainScreen extends StatefulWidget {
+  final DrawingSettings settings;
 
-  const SlideshowScreen({super.key, required this.settings});
+  const DrawingMainScreen({super.key, required this.settings});
 
   @override
-  State<SlideshowScreen> createState() => _SlideshowScreenState();
+  State<DrawingMainScreen> createState() => _DrawingMainScreenState();
 }
 
-class _SlideshowScreenState extends State<SlideshowScreen> {
-  late final int _slideDurationSec;
+class _DrawingMainScreenState extends State<DrawingMainScreen> {
+  late final int _durationSec;
   late final bool _loop;
 
   // ── プレイリスト ────────────────────────────────────────
-  // ペア単位のリスト（シャッフルはペア単位で行う）
-  late final List<_PairEntry> _pairs;
+  late final List<DrawingModel> _playlist;
 
-  // フラット展開した再生リスト（実際に表示する順序）
-  // ペア内は 全身頭身高→全身頭身低 固定。ペア間はシャッフル or 登録順。
-  late final List<AppAsset> _playlist;
-
-  // _playlist 上の各インデックスがペア内遷移かどうか
-  // true = 直前と同じモデル名（ペア内の2枚目）
+  /// _playlist 上の各インデックスがペア内遷移かどうか
+  /// true = 直前と同じモデル名（ペア内の2枚目以降）
   late final List<bool> _isPairTransition;
 
   int _currentIndex = 0;
   bool _isPlaying = false;
-  bool _isCounting = true;
+  bool _isCounting = true; // 開始カウントダウン中
   bool _isFinished = false;
-  bool _isShowingLabel = false;
-  int _countdown = 3;
+  bool _isShowingLabel = false; // 0.5秒のモデル名ラベル表示中
+  int _countdown = AppValues.drawingCountdownSec;
 
   int _remaining = 0;
   int _pausedRemaining = 0;
@@ -63,36 +69,32 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   Timer? _remainingTimer;
   Timer? _labelTimer;
 
-  AppAsset get _currentAsset => _playlist[_currentIndex];
-  String get _currentModelName => _currentAsset.modelName;
-  String get _currentAuthor => _currentAsset.author;
-  String get _currentCategory => _currentAsset.category;
+  DrawingModel get _currentModel => _playlist[_currentIndex];
   bool get _currentIsPairTransition => _isPairTransition[_currentIndex];
 
   int get _computedRemaining {
-    if (_slideStartTime == null) return _slideDurationSec;
+    if (_slideStartTime == null) return _durationSec;
     final elapsed = DateTime.now().difference(_slideStartTime!).inSeconds;
-    return (_slideDurationSec - elapsed).clamp(0, _slideDurationSec);
+    return (_durationSec - elapsed).clamp(0, _durationSec);
   }
 
   // ── プレイリスト構築 ─────────────────────────────────────
   // 1. モデル名でグループ化してペアを作る
   // 2. ペア単位でシャッフル or 登録順を適用
-  // 3. ペア内は 全身頭身高→全身頭身低 の順に固定
+  // 3. ペア内は ベーシック(6頭身) → デフォルメ(2頭身) の順に固定
   // 4. フラットに展開してペア内遷移フラグを付与
-  static ({List<AppAsset> playlist, List<bool> isPairTransition})
-      _buildPlaylist(List<AppAsset> assets, bool shuffle) {
-    // カテゴリの優先順（ペア内の表示順）
-    const pairOrder = ['全身頭身高', '全身頭身低'];
+  static ({List<DrawingModel> playlist, List<bool> isPairTransition})
+      _buildPlaylist(List<DrawingModel> models, bool shuffle) {
+    const pairOrder = ['ベーシック(6頭身)', 'デフォルメ(2頭身)'];
     int pairCategoryIndex(String cat) {
       final i = pairOrder.indexOf(cat);
       return i == -1 ? pairOrder.length : i;
     }
 
     // モデル名でグループ化
-    final Map<String, List<AppAsset>> grouped = {};
-    for (final a in assets) {
-      grouped.putIfAbsent(a.modelName, () => []).add(a);
+    final Map<String, List<DrawingModel>> grouped = {};
+    for (final m in models) {
+      grouped.putIfAbsent(m.modelName, () => []).add(m);
     }
 
     // ペアエントリを生成（ペア内はカテゴリ順にソート）
@@ -102,23 +104,21 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
       return _PairEntry(list);
     }).toList();
 
-    // ペア単位でシャッフル or 登録順（登録順は assets の出現順を維持）
+    // ペア単位でシャッフル or 登録順
     if (shuffle) {
       pairs.shuffle(Random());
     } else {
-      // assets のソート順（= app_assets.dart のカテゴリ定義順）を維持するため
-      // 各ペアの先頭アセットの assets 内インデックスを基準にソート
-      final indexMap = {for (int i = 0; i < assets.length; i++) assets[i]: i};
+      final indexMap = {for (int i = 0; i < models.length; i++) models[i]: i};
       pairs.sort(
           (a, b) => (indexMap[a.first] ?? 0).compareTo(indexMap[b.first] ?? 0));
     }
 
-    // フラットに展開してペア内遷移フラグを付与
-    final playlist = <AppAsset>[];
+    // フラット展開してペア内遷移フラグを付与
+    final playlist = <DrawingModel>[];
     final isPairTransition = <bool>[];
     for (final pair in pairs) {
-      for (int i = 0; i < pair.assets.length; i++) {
-        playlist.add(pair.assets[i]);
+      for (int i = 0; i < pair.models.length; i++) {
+        playlist.add(pair.models[i]);
         isPairTransition.add(i > 0); // 2枚目以降はペア内遷移
       }
     }
@@ -129,13 +129,13 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   @override
   void initState() {
     super.initState();
-    _slideDurationSec = widget.settings.slideDurationSec;
+    _durationSec = widget.settings.durationSec;
     _loop = widget.settings.loop;
-    _remaining = _slideDurationSec;
-    _pausedRemaining = _slideDurationSec;
+    _remaining = _durationSec;
+    _pausedRemaining = _durationSec;
 
     final result = _buildPlaylist(
-      widget.settings.selectedAssets,
+      widget.settings.selectedModels,
       widget.settings.shuffle,
     );
     _playlist = result.playlist;
@@ -163,9 +163,9 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   // ── 残り時間タイマーを指定秒数からリセット・再開 ─────────
   void _restartRemainingTimer({int? from}) {
     _remainingTimer?.cancel();
-    final startSec = from ?? _slideDurationSec;
+    final startSec = from ?? _durationSec;
     _slideStartTime = DateTime.now().subtract(
-      Duration(seconds: _slideDurationSec - startSec),
+      Duration(seconds: _durationSec - startSec),
     );
     setState(() => _remaining = startSec);
 
@@ -175,8 +175,8 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     });
   }
 
-  // ── ラベル表示してからスライドショー開始 ────────────────
-  // ペア内遷移の場合はラベルを表示せず即スタート
+  // ── 0.5秒モデル名ラベルを表示してからスライド開始 ────────
+  // [skipLabel] がtrueの場合（ペア内遷移・手動ボタン操作）はラベルをスキップ
   void _showLabelThenStart({bool skipLabel = false}) {
     _labelTimer?.cancel();
     if (skipLabel) {
@@ -195,23 +195,21 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   void _startSlideshow() {
     _slideshowTimer?.cancel();
     _restartRemainingTimer();
-
     _slideshowTimer = Timer.periodic(
-      Duration(seconds: _slideDurationSec),
+      Duration(seconds: _durationSec),
       (_) => _advanceSlide(),
     );
   }
 
-  // ── スライドを1枚進める ──────────────────────────────────
+  // ── 自動で次のモデルに進む ──────────────────────────────
   void _advanceSlide() {
     final isLast = _currentIndex >= _playlist.length - 1;
 
     if (isLast) {
       if (_loop) {
         setState(() => _currentIndex = 0);
-        _pausedRemaining = _slideDurationSec; // ループ先頭に戻る際もリセット
+        _pausedRemaining = _durationSec;
         _slideshowTimer?.cancel();
-        // ループ先頭はペア内遷移ではないのでラベルあり
         _showLabelThenStart();
       } else {
         _slideshowTimer?.cancel();
@@ -227,7 +225,6 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
 
     setState(() => _currentIndex++);
     _slideshowTimer?.cancel();
-    // 次がペア内遷移ならラベルをスキップ
     _showLabelThenStart(skipLabel: _currentIsPairTransition);
   }
 
@@ -235,7 +232,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   void _pause() {
     _slideshowTimer?.cancel();
     _remainingTimer?.cancel();
-    _pausedRemaining = _remaining;
+    // _remaining は毎秒更新のため最大1秒の誤差がある。
+    // _computedRemaining（DateTime差分）を使うことで一時停止時点の
+    // 正確な残り秒数を保持し、再開後のズレを最小化する。
+    _pausedRemaining = _computedRemaining;
     setState(() => _isPlaying = false);
   }
 
@@ -243,7 +243,6 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
   void _resume() {
     setState(() => _isPlaying = true);
     _restartRemainingTimer(from: _pausedRemaining);
-
     _slideshowTimer?.cancel();
     _slideshowTimer = Timer(
       Duration(seconds: _pausedRemaining),
@@ -266,34 +265,27 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     _showLabelThenStart();
   }
 
-  // ── 前の画像 ───────────────────────────────────────────
+  // ── 前のモデルへ ───────────────────────────────────────
   void _prev() {
     if (_currentIndex <= 0) return;
     _slideshowTimer?.cancel();
     setState(() => _currentIndex--);
-    // 手動移動時は残り時間をフルにリセット
-    _pausedRemaining = _slideDurationSec;
-    // ボタン操作ではラベルを表示しない（自動切り替え時のみ表示）
+    _pausedRemaining = _durationSec;
     if (_isPlaying) _showLabelThenStart(skipLabel: true);
   }
 
-  // ── 次の画像 ───────────────────────────────────────────
+  // ── 次のモデルへ ───────────────────────────────────────
   void _next() {
     final isLast = _currentIndex >= _playlist.length - 1;
     if (isLast && !_loop) return;
     _slideshowTimer?.cancel();
-    // 手動移動時は残り時間をフルにリセット
-    _pausedRemaining = _slideDurationSec;
+    _pausedRemaining = _durationSec;
     if (isLast && _loop) {
-      // ループ時は先頭に戻る
       setState(() => _currentIndex = 0);
-      // ボタン操作ではラベルを表示しない（自動切り替え時のみ表示）
-      if (_isPlaying) _showLabelThenStart(skipLabel: true);
     } else {
       setState(() => _currentIndex++);
-      // ボタン操作ではラベルを表示しない（自動切り替え時のみ表示）
-      if (_isPlaying) _showLabelThenStart(skipLabel: true);
     }
+    if (_isPlaying) _showLabelThenStart(skipLabel: true);
   }
 
   @override
@@ -311,44 +303,53 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     final bool isLast = !_loop && _currentIndex == _playlist.length - 1;
 
     return Scaffold(
-      appBar: AppBarHelper.build(context, 'X秒ドローイング', Colors.purple),
+      appBar: AppBarWidget(
+        title: AppStrings.drawingMainTitle,
+        backgroundColor: AppColors.drawing,
+      ),
       body: Column(
         children: [
-          // ── 画像表示エリア（情報・カウントダウンはオーバーレイ） ──
+          // ── 画像表示エリア ────────────────────────────────
           Expanded(
             child: _isCounting
-                ? Center(child: _buildStartCountdown())
+                ? Center(child: _StartCountdownDisplay(countdown: _countdown))
                 : _isFinished
-                    ? Center(child: _buildEndScreen())
+                    ? Center(
+                        child: _EndScreen(
+                          totalCount: _playlist.length,
+                          onRestart: _restart,
+                        ),
+                      )
                     : _isShowingLabel
-                        ? Center(child: _buildModelNameLabel())
+                        ? Center(
+                            child: _ModelNameLabelDisplay(
+                                modelName: _currentModel.modelName),
+                          )
                         : LayoutBuilder(
                             builder: (context, constraints) {
                               final double areaW = constraints.maxWidth;
                               final double areaH = constraints.maxHeight;
 
-                              // ── パネルサイズ ──────────────────────────────
-                              // 帯幅：全体幅の 10%。最小80・最大160px。
+                              // パネル幅：全体幅の10%、80〜160px
                               final double panelW =
                                   (areaW * 0.10).clamp(80.0, 160.0);
-                              // タイマー：帯幅の 75%
+                              // タイマーサイズ：パネル幅の75%
                               final double timerSize =
                                   (panelW * 0.75).clamp(60.0, 120.0);
-
-                              // ── 余白 ─────────────────────────────────────
-                              // 外余白（帯の外側）：全体幅の 2%。最小8・最大24px。
+                              // 外余白
                               final double outerPad =
-                                  (areaW * 0.2).clamp(4.0, 240.0);
-                              // 内余白（帯と画像の間）：全体幅の 1.5%。最小6・最大16px。
+                                  (areaW * AppValues.outerPadRatio).clamp(
+                                      AppValues.outerPadMin,
+                                      AppValues.outerPadMax);
+                              // 内余白（パネルと画像の間）
                               final double innerPad =
                                   (areaW * 0.015).clamp(6.0, 16.0);
 
                               return Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // 外余白（左）
                                   SizedBox(width: outerPad),
-                                  // ── 左帯：情報パネル ──────────────────
+                                  // ── 左帯：モデル情報パネル ──────
                                   SizedBox(
                                     width: panelW,
                                     height: areaH,
@@ -356,24 +357,26 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                                       alignment: Alignment.topCenter,
                                       child: Padding(
                                         padding: const EdgeInsets.only(top: 8),
-                                        child:
-                                            _buildInfoOverlay(panelW: panelW),
+                                        child: _ModelInfoPanel(
+                                          model: _currentModel,
+                                          loop: _loop,
+                                          shuffle: widget.settings.shuffle,
+                                          panelW: panelW,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                  // 内余白（左パネル〜画像）
                                   SizedBox(width: innerPad),
-                                  // ── 中央：画像 ───────────────────────
+                                  // ── 中央：モデル画像 ────────────
                                   Expanded(
                                     child: Image.asset(
-                                      _currentAsset.path,
+                                      _currentModel.path,
                                       fit: BoxFit.contain,
                                       height: areaH,
                                     ),
                                   ),
-                                  // 内余白（画像〜右パネル）
                                   SizedBox(width: innerPad),
-                                  // ── 右帯：タイマー ────────────────────
+                                  // ── 右帯：タイマー ──────────────
                                   SizedBox(
                                     width: panelW,
                                     height: areaH,
@@ -381,12 +384,15 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                                       alignment: Alignment.topCenter,
                                       child: Padding(
                                         padding: const EdgeInsets.only(top: 8),
-                                        child: _buildCircularCountdown(
-                                            size: timerSize),
+                                        child: _CircularCountdownTimer(
+                                          remaining: _remaining,
+                                          durationSec: _durationSec,
+                                          isPaused: !_isPlaying,
+                                          size: timerSize,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                  // 外余白（右）
                                   SizedBox(width: outerPad),
                                 ],
                               );
@@ -395,7 +401,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
           ),
 
           if (!_isCounting && !_isFinished) ...[
-            // ── ページ数 ────────────────────────────────────
+            // ── ページ数 ──────────────────────────────────
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
@@ -404,8 +410,8 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
               ),
             ),
 
-            // ── ドットインジケーター（20枚以下のみ） ──────────
-            if (_playlist.length <= 20)
+            // ── ドットインジケーター（20枚以下のみ） ──────
+            if (_playlist.length <= AppValues.drawingDotIndicatorMaxCount)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding:
@@ -420,10 +426,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                       height: 8,
                       decoration: BoxDecoration(
                         color: i == _currentIndex
-                            ? Colors.purple
+                            ? AppColors.drawing
                             : _isPairTransition[i]
-                                ? Colors.purple.shade100
-                                : Colors.purple.shade200,
+                                ? AppColors.drawingLight
+                                : AppColors.drawingBorder,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -431,7 +437,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                 ),
               ),
 
-            // ── コントロールボタン ──────────────────────────
+            // ── コントロールボタン ──────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Row(
@@ -442,7 +448,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                     icon: const Icon(Icons.skip_previous),
                     style: IconButton.styleFrom(
                       backgroundColor:
-                          isFirst ? Colors.grey.shade300 : Colors.purple,
+                          isFirst ? Colors.grey.shade300 : AppColors.drawing,
                       foregroundColor: Colors.white,
                       iconSize: 32,
                       padding: const EdgeInsets.all(12),
@@ -453,7 +459,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                     onPressed: _isPlaying ? _pause : _resume,
                     icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.purple,
+                      backgroundColor: AppColors.drawing,
                       foregroundColor: Colors.white,
                       iconSize: 36,
                       padding: const EdgeInsets.all(14),
@@ -465,7 +471,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
                     icon: const Icon(Icons.skip_next),
                     style: IconButton.styleFrom(
                       backgroundColor:
-                          isLast ? Colors.grey.shade300 : Colors.purple,
+                          isLast ? Colors.grey.shade300 : AppColors.drawing,
                       foregroundColor: Colors.white,
                       iconSize: 32,
                       padding: const EdgeInsets.all(12),
@@ -479,11 +485,26 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
       ),
     );
   }
+}
 
-  // ── 左帯：カテゴリ・モデル名・作者・バッジ ──────────────
-  // panelW: 帯の幅px。フォントサイズはこれを基準にする。
-  Widget _buildInfoOverlay({required double panelW}) {
-    // 帯幅の割合でフォントサイズを決定
+// ══════════════════════════════════════════════════════════
+// 左帯：モデル情報パネル（カテゴリ・モデル名・作者・バッジ）
+// ══════════════════════════════════════════════════════════
+class _ModelInfoPanel extends StatelessWidget {
+  final DrawingModel model;
+  final bool loop;
+  final bool shuffle;
+  final double panelW;
+
+  const _ModelInfoPanel({
+    required this.model,
+    required this.loop,
+    required this.shuffle,
+    required this.panelW,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final double catFontSize = (panelW * 0.12).clamp(9.0, 15.0);
     final double nameFontSize = (panelW * 0.16).clamp(11.0, 20.0);
     final double authFontSize = (panelW * 0.12).clamp(9.0, 15.0);
@@ -491,7 +512,6 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
     final double badgeIconSize = (panelW * 0.12).clamp(9.0, 14.0);
     final double spacing = (panelW * 0.03).clamp(2.0, 5.0);
     final double badgeSpacing = (panelW * 0.04).clamp(3.0, 6.0);
-    // 帯内に収めるための最大幅（左右 4px ずつパディング）
     final double maxTextW = panelW - 8;
 
     return SizedBox(
@@ -506,12 +526,12 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
             SizedBox(
               width: maxTextW,
               child: Text(
-                _currentCategory,
+                model.category,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: catFontSize,
-                  color: Colors.purple.shade400,
+                  color: AppColors.drawing.withAlpha(153),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -521,7 +541,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
             SizedBox(
               width: maxTextW,
               child: Text(
-                _currentModelName,
+                model.modelName,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -532,12 +552,12 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
               ),
             ),
             // 作者
-            if (_currentAuthor.isNotEmpty) ...[
+            if (model.author.isNotEmpty) ...[
               SizedBox(height: spacing),
               SizedBox(
                 width: maxTextW,
                 child: Text(
-                  '作者：$_currentAuthor',
+                  '${AppStrings.drawingAuthorPrefix}${model.author}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -548,23 +568,23 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
               ),
             ],
             // ループ・シャッフルバッジ
-            if (_loop || widget.settings.shuffle) ...[
+            if (loop || shuffle) ...[
               SizedBox(height: spacing * 2),
               Wrap(
                 spacing: badgeSpacing,
                 runSpacing: badgeSpacing,
                 children: [
-                  if (_loop)
+                  if (loop)
                     _StatusBadge(
                       icon: Icons.repeat,
-                      label: 'ループ',
+                      label: AppStrings.drawingLoopBadge,
                       fontSize: badgeFontSize,
                       iconSize: badgeIconSize,
                     ),
-                  if (widget.settings.shuffle)
+                  if (shuffle)
                     _StatusBadge(
                       icon: Icons.shuffle,
-                      label: 'シャッフル',
+                      label: AppStrings.drawingShuffleBadge,
                       fontSize: badgeFontSize,
                       iconSize: badgeIconSize,
                     ),
@@ -576,14 +596,27 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
       ),
     );
   }
+}
 
-  // ── 右上オーバーレイ：円形カウントダウン ──────────────
-  // size: 円のpxサイズ（LayoutBuilderから渡される）
-  Widget _buildCircularCountdown({required double size}) {
-    final double progress =
-        _slideDurationSec > 0 ? _remaining / _slideDurationSec : 0.0;
-    final bool paused = !_isPlaying;
+// ══════════════════════════════════════════════════════════
+// 右帯：円形タイマー
+// ══════════════════════════════════════════════════════════
+class _CircularCountdownTimer extends StatelessWidget {
+  final int remaining;
+  final int durationSec;
+  final bool isPaused;
+  final double size;
 
+  const _CircularCountdownTimer({
+    required this.remaining,
+    required this.durationSec,
+    required this.isPaused,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = durationSec > 0 ? remaining / durationSec : 0.0;
     final double strokeWidth = (size * 0.07).clamp(4.0, 8.0);
     final double numFontSize = (size * 0.30).clamp(18.0, 36.0);
     final double labelFontSize = (size * 0.13).clamp(9.0, 15.0);
@@ -594,43 +627,43 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 背景円
           Container(
             decoration: BoxDecoration(
-              color: Colors.purple.shade50,
+              color: AppColors.drawingLight,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.purple.shade100, width: 1),
+              border: Border.all(color: AppColors.drawingBorder, width: 1),
             ),
           ),
-          // 円形プログレスバー
           CircularProgressIndicator(
             value: progress,
             strokeWidth: strokeWidth,
-            backgroundColor: Colors.purple.shade100,
+            backgroundColor: AppColors.drawingBorder,
             valueColor: AlwaysStoppedAnimation<Color>(
-              paused ? Colors.grey.shade400 : Colors.purple,
+              isPaused ? Colors.grey.shade400 : AppColors.drawing,
             ),
           ),
-          // 残り秒数
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '$_remaining',
+                  '$remaining',
                   style: TextStyle(
                     fontSize: numFontSize,
                     fontWeight: FontWeight.bold,
-                    color: paused ? Colors.grey.shade500 : Colors.purple,
+                    color: isPaused ? Colors.grey.shade500 : AppColors.drawing,
                     height: 1.0,
                   ),
                 ),
                 Text(
-                  paused ? '停止' : '秒',
+                  isPaused
+                      ? AppStrings.drawingPauseLabel
+                      : AppStrings.drawingSecLabel,
                   style: TextStyle(
                     fontSize: labelFontSize,
-                    color:
-                        paused ? Colors.grey.shade400 : Colors.purple.shade300,
+                    color: isPaused
+                        ? Colors.grey.shade400
+                        : AppColors.drawing.withAlpha(153),
                   ),
                 ),
               ],
@@ -640,75 +673,110 @@ class _SlideshowScreenState extends State<SlideshowScreen> {
       ),
     );
   }
+}
 
-  // ── 0.5秒表示ラベル（モデル名のみ） ──────────────────
-  Widget _buildModelNameLabel() {
-    return Text(
-      _currentModelName,
-      style: const TextStyle(
-        fontSize: 48,
-        fontWeight: FontWeight.bold,
-        color: Colors.purple,
-      ),
-      textAlign: TextAlign.center,
-    );
-  }
+// ══════════════════════════════════════════════════════════
+// 開始カウントダウン表示
+// ══════════════════════════════════════════════════════════
+class _StartCountdownDisplay extends StatelessWidget {
+  final int countdown;
 
-  Widget _buildEndScreen() {
+  const _StartCountdownDisplay({required this.countdown});
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          'END',
-          style: TextStyle(
-            fontSize: 80,
-            fontWeight: FontWeight.bold,
-            color: Colors.purple,
-            letterSpacing: 8,
-          ),
-        ),
-        const SizedBox(height: 12),
         Text(
-          '全 ${_playlist.length} 枚 完了',
-          style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+          AppStrings.drawingCountdownLabel,
+          style: const TextStyle(fontSize: 18, color: Colors.grey),
         ),
-        const SizedBox(height: 48),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.purple,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          onPressed: _restart,
-          icon: const Icon(Icons.replay),
-          label: const Text('最初から', style: TextStyle(fontSize: 16)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStartCountdown() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text('まもなく開始します',
-            style: TextStyle(fontSize: 18, color: Colors.grey)),
         const SizedBox(height: 24),
         TweenAnimationBuilder<double>(
-          key: ValueKey(_countdown),
+          key: ValueKey(countdown),
           tween: Tween(begin: 1.2, end: 0.8),
           duration: const Duration(milliseconds: 800),
           builder: (context, scale, child) =>
               Transform.scale(scale: scale, child: child),
           child: Text(
-            '$_countdown',
+            '$countdown',
             style: const TextStyle(
               fontSize: 120,
               fontWeight: FontWeight.bold,
-              color: Colors.purple,
+              color: AppColors.drawing,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 0.5秒表示モデル名ラベル
+// ══════════════════════════════════════════════════════════
+class _ModelNameLabelDisplay extends StatelessWidget {
+  final String modelName;
+
+  const _ModelNameLabelDisplay({required this.modelName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      modelName,
+      style: const TextStyle(
+        fontSize: 48,
+        fontWeight: FontWeight.bold,
+        color: AppColors.drawing,
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 終了画面
+// ══════════════════════════════════════════════════════════
+class _EndScreen extends StatelessWidget {
+  final int totalCount;
+  final VoidCallback onRestart;
+
+  const _EndScreen({required this.totalCount, required this.onRestart});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          AppStrings.drawingEndLabel,
+          style: const TextStyle(
+            fontSize: 80,
+            fontWeight: FontWeight.bold,
+            color: AppColors.drawing,
+            letterSpacing: 8,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '全 $totalCount 枚 完了',
+          style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 48),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.drawing,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          onPressed: onRestart,
+          icon: const Icon(Icons.replay),
+          label: Text(
+            AppStrings.drawingRestartButton,
+            style: const TextStyle(fontSize: 16),
           ),
         ),
       ],
@@ -737,17 +805,17 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.purple.shade50,
+        color: AppColors.drawingLight,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.purple.shade200),
+        border: Border.all(color: AppColors.drawingBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: iconSize, color: Colors.purple),
+          Icon(icon, size: iconSize, color: AppColors.drawing),
           const SizedBox(width: 2),
           Text(label,
-              style: TextStyle(fontSize: fontSize, color: Colors.purple)),
+              style: TextStyle(fontSize: fontSize, color: AppColors.drawing)),
         ],
       ),
     );
