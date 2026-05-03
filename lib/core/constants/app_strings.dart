@@ -21,6 +21,7 @@ abstract class AppStrings {
   static const String drawingMainTitle = 'X秒ドローイング';
   static const String drawingSettingsTitle = 'X秒ドローイング設定';
   static const String drawingModelListTitle = 'X秒ドローイングモデル一覧';
+  static const String enlargeViewTitle = '拡大表示';
 
   static const String drawingStartPrompt = 'X秒ドローイングを開始しますか？';
   static const String drawingStartDescription =

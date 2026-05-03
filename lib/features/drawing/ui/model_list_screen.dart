@@ -4,6 +4,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../shared/components/app_bar_widget.dart';
 import '../../../shared/patterns/full_image_screen.dart';
+import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -24,8 +25,8 @@ class _ModelListScreenState extends State<ModelListScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   List<DrawingModel> _all = [];
-  List<String> _categories = [];
-  String? _selectedCategory; // null = すべて
+  List<DrawingCategoryDef> _categories = [];
+  String? _selectedCategoryId; // null = すべて
   List<DrawingModel> _filtered = [];
 
   @override
@@ -49,7 +50,7 @@ class _ModelListScreenState extends State<ModelListScreen> {
     setState(() {
       _filtered = _all.where((model) {
         final categoryMatch =
-            _selectedCategory == null || model.category == _selectedCategory;
+            _selectedCategoryId == null || model.categoryId == _selectedCategoryId;
         final nameMatch =
             query.isEmpty || model.modelName.toLowerCase().contains(query);
         return categoryMatch && nameMatch;
@@ -58,12 +59,12 @@ class _ModelListScreenState extends State<ModelListScreen> {
   }
 
   void _clearFilters() {
-    setState(() => _selectedCategory = null);
+    setState(() => _selectedCategoryId = null);
     _searchController.clear();
   }
 
   bool get _hasFilter =>
-      _selectedCategory != null || _searchController.text.isNotEmpty;
+      _selectedCategoryId != null || _searchController.text.isNotEmpty;
 
   @override
   void dispose() {
@@ -108,9 +109,9 @@ class _ModelListScreenState extends State<ModelListScreen> {
                       children: [
                         _CategoryDropdown(
                           categories: _categories,
-                          selectedCategory: _selectedCategory,
+                          selectedCategoryId: _selectedCategoryId,
                           onChanged: (value) {
-                            setState(() => _selectedCategory = value);
+                            setState(() => _selectedCategoryId = value);
                             _applyFilter();
                           },
                         ),
@@ -172,20 +173,20 @@ class _ModelListScreenState extends State<ModelListScreen> {
 
 // ── カテゴリドロップダウン ──────────────────────────────────
 class _CategoryDropdown extends StatelessWidget {
-  final List<String> categories;
-  final String? selectedCategory;
+  final List<DrawingCategoryDef> categories;
+  final String? selectedCategoryId; // カテゴリID or null（すべて）
   final ValueChanged<String?> onChanged;
 
   const _CategoryDropdown({
     required this.categories,
-    required this.selectedCategory,
+    required this.selectedCategoryId,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String?>(
-      value: selectedCategory,
+      value: selectedCategoryId,
       decoration: InputDecoration(
         labelText: AppStrings.modelListCategoryLabel,
         prefixIcon: const Icon(Icons.folder_outlined, color: AppColors.drawing),
@@ -203,7 +204,7 @@ class _CategoryDropdown extends StatelessWidget {
           value: null,
           child: Text(AppStrings.modelListCategoryAll),
         ),
-        ...categories.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+        ...categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
       ],
       onChanged: onChanged,
     );
@@ -371,7 +372,7 @@ class _ModelThumbnailCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      model.category,
+                      model.categoryName,
                       style: TextStyle(
                           fontSize: 10, color: AppColors.drawingDark),
                       overflow: TextOverflow.ellipsis,
@@ -399,7 +400,7 @@ class _ModelThumbnailCard extends StatelessWidget {
                     ],
                   ),
                   // 作者名
-                  if (model.author.isNotEmpty)
+                  if (model.authorName.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
                       child: Row(
@@ -409,7 +410,7 @@ class _ModelThumbnailCard extends StatelessWidget {
                           const SizedBox(width: 3),
                           Expanded(
                             child: Text(
-                              '${AppStrings.drawingAuthorPrefix}${model.author}',
+                              '${AppStrings.drawingAuthorPrefix}${model.authorName}',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey.shade500,

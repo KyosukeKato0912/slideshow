@@ -4,6 +4,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/extensions/int_ext.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 import '../domain/drawing_settings.dart';
 import '../domain/drawing_settings_repository.dart';
@@ -75,10 +76,11 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
     // 保存済みカテゴリを検証し、存在しないものは除外
     final List<DrawingModel> selectedModels;
     if (saved != null && saved.selectedCategories.isNotEmpty) {
+      final validIds = categories.map((c) => c.id).toSet();
       final valid =
-          saved.selectedCategories.where(categories.contains).toSet();
+          saved.selectedCategories.where(validIds.contains).toSet();
       selectedModels = valid.isNotEmpty
-          ? allModels.where((m) => valid.contains(m.category)).toList()
+          ? allModels.where((m) => valid.contains(m.categoryId)).toList()
           : allModels; // 全カテゴリ無効なら全件
     } else {
       selectedModels = allModels; // 未保存 → 全件
@@ -277,18 +279,19 @@ class DrawingSettingsSummaryCard extends StatelessWidget {
     final shuffle =
         saved?.shuffle ?? DrawingSettingsRepository.defaultShuffle;
 
-    // 選択カテゴリの解決
+    // 選択カテゴリの解決（selectedCats はカテゴリIDのSet）
+    final categoryIds = categories.map((c) => c.id).toSet();
     final Set<String> selectedCats;
     if (saved == null || saved!.selectedCategories.isEmpty) {
-      selectedCats = categories.toSet();
+      selectedCats = Set.of(categoryIds);
     } else {
       selectedCats =
-          saved!.selectedCategories.where(categories.contains).toSet();
-      if (selectedCats.isEmpty) selectedCats.addAll(categories);
+          saved!.selectedCategories.where(categoryIds.contains).toSet();
+      if (selectedCats.isEmpty) selectedCats.addAll(categoryIds);
     }
     final isAllCategories = selectedCats.length == categories.length;
     final imageCount =
-        models.where((m) => selectedCats.contains(m.category)).length;
+        models.where((m) => selectedCats.contains(m.categoryId)).length;
 
     return Container(
       width: double.infinity,

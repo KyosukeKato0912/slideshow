@@ -5,17 +5,19 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 import '../domain/drawing_settings.dart';
 
 // ══════════════════════════════════════════════════════════
 // ペアエントリ
 //
-// 同じモデル名を持つアセットを「ベーシック(6頭身) → デフォルメ(2頭身)」順にまとめた
+// 同じモデル名を持つアセットを DrawingConfig.categories の定義順にまとめた
 // 再生単位。単独の場合は models.length == 1。
+// ペア内のソート順は DrawingConfig.categorySortIndex に従う。
 // ══════════════════════════════════════════════════════════
 class _PairEntry {
-  /// ペア内のモデルリスト（ベーシック(6頭身)が[0]、デフォルメ(2頭身)が[1]）
+  /// ペア内のモデルリスト（DrawingConfig.categories の定義順）
   final List<DrawingModel> models;
 
   const _PairEntry(this.models);
@@ -81,26 +83,20 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
   // ── プレイリスト構築 ─────────────────────────────────────
   // 1. モデル名でグループ化してペアを作る
   // 2. ペア単位でシャッフル or 登録順を適用
-  // 3. ペア内は ベーシック(6頭身) → デフォルメ(2頭身) の順に固定
+  // 3. ペア内は DrawingConfig.categories の定義順に固定
   // 4. フラットに展開してペア内遷移フラグを付与
   static ({List<DrawingModel> playlist, List<bool> isPairTransition})
       _buildPlaylist(List<DrawingModel> models, bool shuffle) {
-    const pairOrder = ['ベーシック(6頭身)', 'デフォルメ(2頭身)'];
-    int pairCategoryIndex(String cat) {
-      final i = pairOrder.indexOf(cat);
-      return i == -1 ? pairOrder.length : i;
-    }
-
     // モデル名でグループ化
     final Map<String, List<DrawingModel>> grouped = {};
     for (final m in models) {
       grouped.putIfAbsent(m.modelName, () => []).add(m);
     }
 
-    // ペアエントリを生成（ペア内はカテゴリ順にソート）
+    // ペアエントリを生成（ペア内は DrawingConfig.categorySortIndex 順にソート）
     final pairs = grouped.values.map((list) {
-      list.sort((a, b) => pairCategoryIndex(a.category)
-          .compareTo(pairCategoryIndex(b.category)));
+      list.sort((a, b) => DrawingConfig.categorySortIndex(a.categoryId)
+          .compareTo(DrawingConfig.categorySortIndex(b.categoryId)));
       return _PairEntry(list);
     }).toList();
 
@@ -526,7 +522,7 @@ class _ModelInfoPanel extends StatelessWidget {
             SizedBox(
               width: maxTextW,
               child: Text(
-                model.category,
+                model.categoryName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -552,12 +548,12 @@ class _ModelInfoPanel extends StatelessWidget {
               ),
             ),
             // 作者
-            if (model.author.isNotEmpty) ...[
+            if (model.authorName.isNotEmpty) ...[
               SizedBox(height: spacing),
               SizedBox(
                 width: maxTextW,
                 child: Text(
-                  '${AppStrings.drawingAuthorPrefix}${model.author}',
+                  '${AppStrings.drawingAuthorPrefix}${model.authorName}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

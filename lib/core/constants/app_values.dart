@@ -32,10 +32,10 @@ abstract class AppValues {
 
   // ── アセットパス ────────────────────────────────────────
   /// ポーズモデル画像の格納フォルダ
-  static const String modelAssetFolder = 'assets/model/';
+  static const String modelAssetFolder = 'assets/images/models/';
 
   // ── モデルカテゴリ ──────────────────────────────────────
-  // NOTE: カテゴリ定義順はここではなく DrawingModel.categoryOrder で管理する
+  // NOTE: カテゴリ定義順は DrawingConfig.categories のリスト順で管理する
 
   // ── 将来実装予定（Hive typeId 一覧） ───────────────────
   // GrowthRecord   : typeId = 0  （未実装）

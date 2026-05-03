@@ -1,70 +1,104 @@
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_values.dart';
+import '../../../core/config/drawing_config.dart';
 
 // ══════════════════════════════════════════════════════════
 // X秒ドローイング モデルアセット
 //
-// ファイル名規則: {カテゴリ}_{パターン番号}_{作者名}_{モデル名}.{拡張子}
-// 例: ベーシック(6頭身)_01_山田_太郎.png
-//     → category=ベーシック(6頭身), pattern=01, author=山田, modelName=太郎
+// ファイル名規則: draw-{categoryId}-{authorId}-{modelId}.{拡張子}
+// 例: draw-c01-a01-m00001.png
+//
+// カテゴリ名・作者名・モデル名の文字列は DrawingConfig から取得する。
+// ファイル名に日本語・特殊文字を含めないことでパースバグを防止。
 // ══════════════════════════════════════════════════════════
 class DrawingModel {
   final String path;
-  final String category;
-  final String pattern;
-  final String author;
-  final String modelName;
+
+  /// ファイル名から抽出したカテゴリID（例: 'c01'）
+  final String categoryId;
+
+  /// ファイル名から抽出した作者ID（例: 'a01'）
+  final String authorId;
+
+  /// ファイル名から抽出したモデルID（例: 'm00001'）
+  final String modelId;
+
+  // ── DrawingConfig から解決した表示用データ ────────────
+  /// カテゴリの定義。未定義IDの場合は null
+  final DrawingCategoryDef? categoryDef;
+
+  /// 作者の定義。未定義IDの場合は null
+  final DrawingAuthorDef? authorDef;
+
+  /// モデルの定義。未定義IDの場合は null
+  final DrawingModelDef? modelDef;
 
   const DrawingModel({
     required this.path,
-    required this.category,
-    required this.pattern,
-    required this.author,
-    required this.modelName,
+    required this.categoryId,
+    required this.authorId,
+    required this.modelId,
+    required this.categoryDef,
+    required this.authorDef,
+    required this.modelDef,
   });
+
+  // ── 表示用ゲッター ──────────────────────────────────────
+
+  /// カテゴリ表示名（未定義IDの場合は ID をそのまま表示）
+  String get categoryName => categoryDef?.name ?? categoryId;
+
+  /// カテゴリ短縮表示名（未定義IDの場合は ID をそのまま表示）
+  String get categoryShortName => categoryDef?.shortName ?? categoryId;
+
+  /// 作者表示名（未定義IDの場合は ID をそのまま表示）
+  String get authorName => authorDef?.displayName ?? authorId;
+
+  /// モデル表示名（未定義IDの場合は ID をそのまま表示）
+  String get modelName => modelDef?.name ?? modelId;
 
   /// サムネイルや一覧で表示するラベル
   String get label => modelName;
 
-  // ── カテゴリのソート順定義 ─────────────────────────────
-  static const List<String> categoryOrder = [
-    'ベーシック(6頭身)',
-    'デフォルメ(2頭身)',
-    '顔',
-    '手',
-  ];
-
-  static int _categoryIndex(String category) {
-    final index = categoryOrder.indexOf(category);
-    return index == -1 ? categoryOrder.length : index; // 未定義は末尾
-  }
+  // ── ファクトリ ──────────────────────────────────────────
 
   /// ファイルパスから [DrawingModel] を生成する。
-  /// ファイル名規則に合わない場合はファイル名全体をモデル名として扱う。
+  ///
+  /// ファイル名規則: draw-{categoryId}-{authorId}-{modelId}.{拡張子}
+  /// 規則に合わない場合は categoryId / authorId / modelId を空文字として扱い、
+  /// 表示名はIDをそのままフォールバック表示する。
   factory DrawingModel.fromPath(String path) {
     final fileName = path.split('/').last;
     final nameWithoutExt = fileName.contains('.')
         ? fileName.substring(0, fileName.lastIndexOf('.'))
         : fileName;
 
-    final parts = nameWithoutExt.split('_');
-    if (parts.length >= 4) {
+    // 'draw-c01-a01-m00001' → ['draw', 'c01', 'a01', 'm00001']
+    final parts = nameWithoutExt.split('-');
+    if (parts.length == 4 && parts[0] == 'draw') {
+      final categoryId = parts[1];
+      final authorId   = parts[2];
+      final modelId    = parts[3];
       return DrawingModel(
-        path: path,
-        category: parts[0],
-        pattern: parts[1],
-        author: parts[2],
-        modelName: parts.sublist(3).join('_'), // モデル名に _ が含まれる場合も考慮
+        path:        path,
+        categoryId:  categoryId,
+        authorId:    authorId,
+        modelId:     modelId,
+        categoryDef: DrawingConfig.findCategory(categoryId),
+        authorDef:   DrawingConfig.findAuthor(authorId),
+        modelDef:    DrawingConfig.findModel(modelId),
       );
     }
 
-    // 規則外ファイル：カテゴリ・パターン・作者を空扱いにする
+    // 規則外ファイル：IDはすべて空扱いで、ファイル名をモデル名として表示
     return DrawingModel(
-      path: path,
-      category: '未分類',
-      pattern: '',
-      author: '',
-      modelName: nameWithoutExt,
+      path:        path,
+      categoryId:  '',
+      authorId:    '',
+      modelId:     nameWithoutExt,
+      categoryDef: null,
+      authorDef:   null,
+      modelDef:    null,
     );
   }
 }
@@ -72,7 +106,7 @@ class DrawingModel {
 // ══════════════════════════════════════════════════════════
 // モデルアセット一覧ローダー
 //
-// pubspec.yaml に assets/model/ フォルダを登録しておけば
+// pubspec.yaml に assets/images/models/ フォルダを登録しておけば
 // 追加した画像ファイルが自動的にリストに反映される。
 //
 // 使い方:
@@ -81,10 +115,10 @@ class DrawingModel {
 class DrawingModelLoader {
   DrawingModelLoader._();
 
-  // ── ロード結果をキャッシュし、複数画面からの二重呼び出しを防ぐ ──
+  // ロード結果をキャッシュし、複数画面からの二重呼び出しを防ぐ
   static Future<List<DrawingModel>>? _cache;
 
-  /// assets/model/ 配下の画像を AssetManifest から動的に取得する。
+  /// assets/images/models/ 配下の画像を AssetManifest から動的に取得する。
   /// 2回目以降はキャッシュを返す。
   static Future<List<DrawingModel>> load() => _cache ??= _loadInternal();
 
@@ -102,26 +136,26 @@ class DrawingModelLoader {
 
     final models = paths.map(DrawingModel.fromPath).toList();
 
-    // カテゴリ定義順 → パターン番号 → モデル名 の順でソート
+    // DrawingConfig.categories のリスト順 → モデル名 の順でソート
     models.sort((a, b) {
-      final categoryCmp = DrawingModel._categoryIndex(a.category)
-          .compareTo(DrawingModel._categoryIndex(b.category));
+      final categoryCmp =
+          DrawingConfig.categorySortIndex(a.categoryId)
+              .compareTo(DrawingConfig.categorySortIndex(b.categoryId));
       if (categoryCmp != 0) return categoryCmp;
-      final patternCmp = a.pattern.compareTo(b.pattern);
-      if (patternCmp != 0) return patternCmp;
-      return a.modelName.compareTo(b.modelName);
+      return a.modelId.compareTo(b.modelId);
     });
 
     return models;
   }
 
-  /// ロード済みリストからカテゴリ一覧を取得（定義順・重複なし）
-  static List<String> categories(List<DrawingModel> models) {
-    final seen = <String>{};
-    final result = <String>[];
-    for (final m in models) {
-      if (seen.add(m.category)) result.add(m.category);
-    }
-    return result; // models がソート済みなので挿入順 = 定義順
+  /// ロード済みリストから [DrawingCategoryDef] 一覧を取得する。
+  ///
+  /// DrawingConfig.categories の定義順を維持しつつ、
+  /// 実際にアセットが存在するカテゴリだけを返す。
+  static List<DrawingCategoryDef> categories(List<DrawingModel> models) {
+    final presentIds = models.map((m) => m.categoryId).toSet();
+    return DrawingConfig.categories
+        .where((c) => presentIds.contains(c.id))
+        .toList();
   }
 }

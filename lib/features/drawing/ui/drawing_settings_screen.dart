@@ -4,6 +4,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/extensions/int_ext.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 import '../domain/drawing_settings.dart';
 import '../domain/drawing_settings_repository.dart';
@@ -21,7 +22,7 @@ class DrawingSettingsScreen extends StatefulWidget {
 
 class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
   List<DrawingModel> _allModels = [];
-  List<String> _categories = [];
+  List<DrawingCategoryDef> _categories = [];
   Set<String> _selectedCategories = {};
 
   int _durationSec = DrawingSettingsRepository.defaultDurationSec;
@@ -34,7 +35,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
   bool get _canStart => _selectedCategories.isNotEmpty;
 
   List<DrawingModel> get _selectedModels => _allModels
-      .where((m) => _selectedCategories.contains(m.category))
+      .where((m) => _selectedCategories.contains(m.categoryId))
       .toList();
 
   @override
@@ -63,13 +64,15 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
           _durationSec = saved.durationSec;
           _loop = saved.loop;
           _shuffle = saved.shuffle;
+          final validCategoryIds =
+              _categories.map((c) => c.id).toSet();
           final validCategories =
-              saved.selectedCategories.where(_categories.contains).toSet();
+              saved.selectedCategories.where(validCategoryIds.contains).toSet();
           _selectedCategories = validCategories.isNotEmpty
               ? validCategories
-              : Set.of(_categories);
+              : _categories.map((c) => c.id).toSet();
         } else {
-          _selectedCategories = Set.of(_categories);
+          _selectedCategories = _categories.map((c) => c.id).toSet();
         }
       });
     } catch (e) {
@@ -82,7 +85,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
 
   void _toggleAllCategories(bool select) {
     setState(() {
-      _selectedCategories = select ? Set.of(_categories) : {};
+      _selectedCategories = select ? _categories.map((c) => c.id).toSet() : {};
     });
   }
 
@@ -167,7 +170,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
       _durationSec = DrawingSettingsRepository.defaultDurationSec;
       _loop = DrawingSettingsRepository.defaultLoop;
       _shuffle = DrawingSettingsRepository.defaultShuffle;
-      _selectedCategories = Set.of(_categories);
+      _selectedCategories = _categories.map((c) => c.id).toSet();
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(AppStrings.drawingSettingsReset)),
@@ -455,8 +458,8 @@ class _DurationSetting extends StatelessWidget {
 
 // ── カテゴリ選択ウィジェット ────────────────────────────────
 class _CategorySelector extends StatelessWidget {
-  final List<String> categories;
-  final Set<String> selectedCategories;
+  final List<DrawingCategoryDef> categories;
+  final Set<String> selectedCategories; // カテゴリIDのSet
   final List<DrawingModel> allModels;
   final bool allCategoriesSelected;
   final ValueChanged<bool> onToggleAll;
@@ -507,20 +510,20 @@ class _CategorySelector extends StatelessWidget {
           ],
         ),
         const Divider(),
-        ...categories.map((category) {
-          final selected = selectedCategories.contains(category);
+        ...categories.map((categoryDef) {
+          final selected = selectedCategories.contains(categoryDef.id);
           final count =
-              allModels.where((m) => m.category == category).length;
+              allModels.where((m) => m.categoryId == categoryDef.id).length;
           return CheckboxListTile(
             value: selected,
             activeColor: AppColors.drawing,
-            title: Text(category),
+            title: Text(categoryDef.name),
             subtitle: Text('$count 枚', style: const TextStyle(fontSize: 11)),
             secondary: Icon(
               Icons.folder_outlined,
               color: selected ? AppColors.drawing : Colors.grey,
             ),
-            onChanged: (_) => onToggleCategory(category),
+            onChanged: (_) => onToggleCategory(categoryDef.id),
           );
         }),
       ],
