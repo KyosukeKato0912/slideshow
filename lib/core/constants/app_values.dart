@@ -27,6 +27,18 @@ abstract class AppValues {
   /// 設定：切り替え時間の変更単位（秒）
   static const int drawingDurationStepSec = 30;
 
+  /// 設定：最大作業時間の下限（分）
+  static const int drawingMaxWorkTimeMinMin = 1;
+
+  /// 設定：最大作業時間の上限（分）
+  static const int drawingMaxWorkTimeMaxMin = 100;
+
+  /// 設定：最大作業時間の変更単位（分）
+  static const int drawingMaxWorkTimeStepMin = 1;
+
+  /// 最大作業時間「無制限」を表す値
+  static const int drawingMaxWorkTimeUnlimited = 0;
+
   /// ドットインジケーターを表示する最大枚数
   static const int drawingDotIndicatorMaxCount = 20;
 

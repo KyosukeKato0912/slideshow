@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/router/app_router.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -38,7 +39,7 @@ class HomeScreen extends StatelessWidget {
                   _FeatureNavButton(
                     label: AppStrings.featureDrawing,
                     color: AppColors.drawing,
-                    enabled: _FeatureFlags.xSecDrawing,
+                    enabled: AppConfig.featureXSecDrawing,
                     onTap: () =>
                         Navigator.push(context, AppRouter.drawing()),
                   ),
@@ -46,28 +47,28 @@ class HomeScreen extends StatelessWidget {
                   _FeatureNavButton(
                     label: AppStrings.featureTopic,
                     color: AppColors.topicGenerator,
-                    enabled: _FeatureFlags.topicGenerator,
+                    enabled: AppConfig.featureTopicGenerator,
                     onTap: () {}, // TODO: AppRouter.topic() に差し替える
                   ),
                   const SizedBox(height: 12),
                   _FeatureNavButton(
                     label: AppStrings.featureGrowth,
                     color: AppColors.growthRecord,
-                    enabled: _FeatureFlags.growthRecord,
+                    enabled: AppConfig.featureGrowthRecord,
                     onTap: () {}, // TODO: AppRouter.growth() に差し替える
                   ),
                   const SizedBox(height: 12),
                   _FeatureNavButton(
                     label: AppStrings.featureHabit,
                     color: AppColors.habitSupport,
-                    enabled: _FeatureFlags.habitSupport,
+                    enabled: AppConfig.featureHabitSupport,
                     onTap: () {}, // TODO: AppRouter.habit() に差し替える
                   ),
                   const SizedBox(height: 12),
                   _FeatureNavButton(
                     label: AppStrings.featureProLesson,
                     color: AppColors.proArtistLesson,
-                    enabled: _FeatureFlags.proArtistLesson,
+                    enabled: AppConfig.featureProLesson,
                     onTap: () {}, // TODO: AppRouter.proLesson() に差し替える
                   ),
                 ],
@@ -78,19 +79,6 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-// ══════════════════════════════════════════════════════════
-// 機能の活性／非活性フラグ
-// true  → ボタン有効（実装済み）
-// false → ボタン無効（未実装・準備中）
-// ══════════════════════════════════════════════════════════
-abstract class _FeatureFlags {
-  static const bool xSecDrawing = true; // X秒ドローイング
-  static const bool topicGenerator = false; // お題ジェネレーター
-  static const bool growthRecord = false; // 成長記録
-  static const bool habitSupport = false; // 習慣化サポート
-  static const bool proArtistLesson = false; // プロ絵師解説
 }
 
 // ══════════════════════════════════════════════════════════
@@ -117,7 +105,7 @@ class _FeatureNavButton extends StatelessWidget {
             enabled ? color : AppColors.disabled,
         foregroundColor:
             enabled ? Colors.white : AppColors.disabledText,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 32),
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: enabled ? 2 : 0,

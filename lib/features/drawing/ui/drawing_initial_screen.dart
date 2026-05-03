@@ -92,6 +92,8 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
       selectedModels: selectedModels,
       loop: saved?.loop ?? DrawingSettingsRepository.defaultLoop,
       shuffle: saved?.shuffle ?? DrawingSettingsRepository.defaultShuffle,
+      maxWorkTimeSec: saved?.maxWorkTimeSec ??
+          DrawingSettingsRepository.defaultMaxWorkTimeSec,
     );
 
     Navigator.push(
@@ -278,6 +280,8 @@ class DrawingSettingsSummaryCard extends StatelessWidget {
     final loop = saved?.loop ?? DrawingSettingsRepository.defaultLoop;
     final shuffle =
         saved?.shuffle ?? DrawingSettingsRepository.defaultShuffle;
+    final maxWorkTimeSec =
+        saved?.maxWorkTimeSec ?? DrawingSettingsRepository.defaultMaxWorkTimeSec;
 
     // 選択カテゴリの解決（selectedCats はカテゴリIDのSet）
     final categoryIds = categories.map((c) => c.id).toSet();
@@ -327,7 +331,7 @@ class DrawingSettingsSummaryCard extends StatelessWidget {
             children: [
               _SummaryChip(
                 icon: Icons.timer_outlined,
-                label: duration.toDisplayDuration(),
+                label: '${AppStrings.drawingSummaryDurationPrefix}: ${duration.toDisplayDuration()}',
               ),
               _SummaryChip(
                 icon: Icons.image_outlined,
@@ -337,7 +341,10 @@ class DrawingSettingsSummaryCard extends StatelessWidget {
                 icon: Icons.folder_outlined,
                 label: isAllCategories
                     ? AppStrings.drawingAllCategories
-                    : selectedCats.join(' / '),
+                    : selectedCats
+                        .map((id) =>
+                            DrawingConfig.findCategory(id)?.shortName ?? id)
+                        .join(' / '),
               ),
               if (loop)
                 const _SummaryChip(
@@ -349,6 +356,12 @@ class DrawingSettingsSummaryCard extends StatelessWidget {
                 label: shuffle
                     ? AppStrings.drawingShuffleBadge
                     : AppStrings.drawingRegisteredOrder,
+              ),
+              _SummaryChip(
+                icon: Icons.hourglass_bottom_outlined,
+                label: maxWorkTimeSec == AppValues.drawingMaxWorkTimeUnlimited
+                    ? '${AppStrings.drawingSummaryMaxTimePrefix}: ${AppStrings.drawingSettingsMaxTimeUnlimited}'
+                    : '${AppStrings.drawingSummaryMaxTimePrefix}: ${maxWorkTimeSec.toDisplayDuration()}',
               ),
             ],
           ),

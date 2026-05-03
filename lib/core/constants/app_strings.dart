@@ -46,6 +46,9 @@ abstract class AppStrings {
   static const String drawingRandomOrder = 'ランダム';
   static const String drawingRegisteredOrder = '登録順';
 
+  static const String drawingSettingsMaxTimeTitle = '⏳ 最大作業時間';
+  static const String drawingSettingsMaxTimeUnlimited = '無制限';
+  static const String drawingEndSubLabel = 'お疲れさまでした';
   static const String drawingSettingsDurationTitle = '⏱ 画像切り替え時間';
   static const String drawingSettingsLoopTitle = '🔁 ループ再生';
   static const String drawingSettingsShuffleTitle = '🔀 再生順序';
@@ -60,6 +63,20 @@ abstract class AppStrings {
   static const String drawingSettingsCategoryWarning =
       '⚠ カテゴリを1つ以上選択してください';
   static const String drawingSettingsSelectAll = 'すべて選択';
+
+  // ── X秒ドローイング 設定説明テキスト ────────────────────
+  static const String drawingLoopOnTitle    = 'ループあり';
+  static const String drawingLoopOffTitle   = 'ループなし';
+  static const String drawingLoopOnDesc     = '最後の画像の後、最初に戻って繰り返します';
+  static const String drawingLoopOffDesc    = '最後の画像で停止します';
+  static const String drawingShuffleOnDesc  = '画像をランダムな順番で再生します';
+  static const String drawingShuffleOffDesc = '画像を登録された順番で再生します';
+  static const String drawingMaxTimeUnlimitedDesc = '時間制限なしで再生します';
+  static const String drawingMaxTimeLimitedDesc   = '指定時間が経過すると終了します';
+
+  // ── X秒ドローイング 設定サマリーチップ ──────────────────
+  static const String drawingSummaryDurationPrefix = '切替';  // 切替: X秒
+  static const String drawingSummaryMaxTimePrefix  = '上限';  // 上限: X分 / 無制限
 
   static const String drawingToggleHeightButton = '頭身切り替え';
   static const String drawingNoPairLabel = 'ペアなし';

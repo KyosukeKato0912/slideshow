@@ -28,6 +28,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
   int _durationSec = DrawingSettingsRepository.defaultDurationSec;
   bool _loop = DrawingSettingsRepository.defaultLoop;
   bool _shuffle = DrawingSettingsRepository.defaultShuffle;
+  int _maxWorkTimeSec = DrawingSettingsRepository.defaultMaxWorkTimeSec;
 
   bool get _allCategoriesSelected =>
       _selectedCategories.length == _categories.length;
@@ -64,6 +65,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
           _durationSec = saved.durationSec;
           _loop = saved.loop;
           _shuffle = saved.shuffle;
+          _maxWorkTimeSec = saved.maxWorkTimeSec;
           final validCategoryIds =
               _categories.map((c) => c.id).toSet();
           final validCategories =
@@ -105,6 +107,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
       loop: _loop,
       shuffle: _shuffle,
       selectedCategories: _selectedCategories.toList(),
+      maxWorkTimeSec: _maxWorkTimeSec,
     );
   }
 
@@ -134,6 +137,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
       selectedModels: _selectedModels,
       loop: _loop,
       shuffle: _shuffle,
+      maxWorkTimeSec: _maxWorkTimeSec,
     );
     Navigator.push(
       context,
@@ -170,6 +174,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
       _durationSec = DrawingSettingsRepository.defaultDurationSec;
       _loop = DrawingSettingsRepository.defaultLoop;
       _shuffle = DrawingSettingsRepository.defaultShuffle;
+      _maxWorkTimeSec = DrawingSettingsRepository.defaultMaxWorkTimeSec;
       _selectedCategories = _categories.map((c) => c.id).toSet();
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -233,13 +238,13 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                         activeColor: AppColors.drawing,
                         onChanged: (v) => setState(() => _loop = v),
                         title: Text(
-                          _loop ? 'ループあり' : 'ループなし',
+                          _loop ? AppStrings.drawingLoopOnTitle : AppStrings.drawingLoopOffTitle,
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                         subtitle: Text(
                           _loop
-                              ? '最後の画像の後、最初に戻って繰り返します'
-                              : '最後の画像で停止します',
+                              ? AppStrings.drawingLoopOnDesc
+                              : AppStrings.drawingLoopOffDesc,
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey.shade500),
                         ),
@@ -267,8 +272,8 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                         ),
                         subtitle: Text(
                           _shuffle
-                              ? '画像をランダムな順番で再生します'
-                              : '画像を登録された順番で再生します',
+                              ? AppStrings.drawingShuffleOnDesc
+                              : AppStrings.drawingShuffleOffDesc,
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey.shade500),
                         ),
@@ -276,6 +281,18 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                           _shuffle ? Icons.shuffle : Icons.sort,
                           color: _shuffle ? AppColors.drawing : Colors.grey,
                         ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ── 最大作業時間 ──────────────────────────
+                    _SettingsSectionCard(
+                      title: AppStrings.drawingSettingsMaxTimeTitle,
+                      child: _MaxWorkTimeSetting(
+                        maxWorkTimeSec: _maxWorkTimeSec,
+                        onChanged: (v) =>
+                            setState(() => _maxWorkTimeSec = v),
                       ),
                     ),
 
@@ -385,6 +402,110 @@ class _SettingsSectionCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── 最大作業時間設定ウィジェット ────────────────────────────
+class _MaxWorkTimeSetting extends StatelessWidget {
+  /// 最大作業時間（秒）。0 = 無制限。
+  final int maxWorkTimeSec;
+  final ValueChanged<int> onChanged;
+
+  const _MaxWorkTimeSetting({
+    required this.maxWorkTimeSec,
+    required this.onChanged,
+  });
+
+  bool get _isUnlimited =>
+      maxWorkTimeSec == AppValues.drawingMaxWorkTimeUnlimited;
+
+  int get _minutes => maxWorkTimeSec ~/ 60;
+
+  String get _displayLabel => _isUnlimited
+      ? AppStrings.drawingSettingsMaxTimeUnlimited
+      : '$_minutes 分';
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // 無制限トグル
+        SwitchListTile(
+          value: _isUnlimited,
+          activeColor: AppColors.drawing,
+          onChanged: (v) => onChanged(
+              v ? AppValues.drawingMaxWorkTimeUnlimited : 10 * 60),
+          title: const Text(AppStrings.drawingSettingsMaxTimeUnlimited,
+              style: TextStyle(fontWeight: FontWeight.w500)),
+          subtitle: Text(
+            _isUnlimited ? AppStrings.drawingMaxTimeUnlimitedDesc : AppStrings.drawingMaxTimeLimitedDesc,
+            style:
+                TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+          secondary: Icon(Icons.all_inclusive,
+              color: _isUnlimited ? AppColors.drawing : Colors.grey),
+        ),
+
+        // 時間選択（無制限OFF時のみ表示）
+        if (!_isUnlimited) ...[
+          const Divider(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                onPressed: _minutes > AppValues.drawingMaxWorkTimeMinMin
+                    ? () => onChanged(
+                        (_minutes - AppValues.drawingMaxWorkTimeStepMin) *
+                            60)
+                    : null,
+                icon: const Icon(Icons.remove_circle_outline),
+                color: AppColors.drawing,
+                iconSize: 32,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _displayLabel,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.drawing,
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: _minutes < AppValues.drawingMaxWorkTimeMaxMin
+                    ? () => onChanged(
+                        (_minutes + AppValues.drawingMaxWorkTimeStepMin) *
+                            60)
+                    : null,
+                icon: const Icon(Icons.add_circle_outline),
+                color: AppColors.drawing,
+                iconSize: 32,
+              ),
+            ],
+          ),
+          Slider(
+            value: _minutes.toDouble(),
+            min: AppValues.drawingMaxWorkTimeMinMin.toDouble(),
+            max: AppValues.drawingMaxWorkTimeMaxMin.toDouble(),
+            divisions: AppValues.drawingMaxWorkTimeMaxMin -
+                AppValues.drawingMaxWorkTimeMinMin,
+            activeColor: AppColors.drawing,
+            label: _displayLabel,
+            onChanged: (v) =>
+                onChanged(v.round() * 60),
+          ),
+          Text(
+            '${AppValues.drawingMaxWorkTimeMinMin} 分〜'
+            '${AppValues.drawingMaxWorkTimeMaxMin} 分'
+            '（${AppValues.drawingMaxWorkTimeStepMin} 分単位）',
+            style:
+                TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 4),
+        ],
+      ],
     );
   }
 }

@@ -19,11 +19,15 @@ class DrawingSettings {
   /// シャッフル再生するか
   final bool shuffle;
 
+  /// 最大作業時間（秒）。0 = 無制限。
+  final int maxWorkTimeSec;
+
   const DrawingSettings({
     required this.durationSec,
     required this.selectedModels,
     this.loop = false,
     this.shuffle = true,
+    this.maxWorkTimeSec = 0,
   });
 
   DrawingSettings copyWith({
@@ -31,12 +35,14 @@ class DrawingSettings {
     List<DrawingModel>? selectedModels,
     bool? loop,
     bool? shuffle,
+    int? maxWorkTimeSec,
   }) {
     return DrawingSettings(
       durationSec: durationSec ?? this.durationSec,
       selectedModels: selectedModels ?? this.selectedModels,
       loop: loop ?? this.loop,
       shuffle: shuffle ?? this.shuffle,
+      maxWorkTimeSec: maxWorkTimeSec ?? this.maxWorkTimeSec,
     );
   }
 }
