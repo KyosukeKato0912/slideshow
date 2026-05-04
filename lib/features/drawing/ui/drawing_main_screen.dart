@@ -421,7 +421,7 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
 
                               // パネル幅：全体幅の10%、80〜160px
                               final double panelW =
-                                  (areaW * 0.10).clamp(80.0, 160.0);
+                                  (areaW * 0.13).clamp(95.0, 200.0);
                               // タイマーサイズ：パネル幅の75%
                               final double timerSize =
                                   (panelW * 0.75).clamp(60.0, 120.0);
@@ -603,7 +603,7 @@ class _ModelInfoPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double catFontSize = (panelW * 0.12).clamp(9.0, 15.0);
-    final double nameFontSize = (panelW * 0.16).clamp(11.0, 20.0);
+    final double nameFontSize = (panelW * 0.20).clamp(14.0, 26.0);
     final double authFontSize = (panelW * 0.12).clamp(9.0, 15.0);
     final double badgeFontSize = (panelW * 0.10).clamp(8.0, 13.0);
     final double badgeIconSize = (panelW * 0.12).clamp(9.0, 14.0);
@@ -611,14 +611,36 @@ class _ModelInfoPanel extends StatelessWidget {
     final double badgeSpacing = (panelW * 0.04).clamp(3.0, 6.0);
     final double maxTextW = panelW - 8;
 
-    return SizedBox(
+    // ノート風デザイン定数
+    const Color noteBg       = Color(0xFFFFFDE7); // クリーム（黄みがかった白）
+    const Color noteRuleLine = Color(0xFFBBDEFB); // 薄青の横罫線
+    const Color noteMargin   = Color(0xFFEF9A9A); // 赤のマージン縦線
+    const double marginLineX = 12.0;
+    const double ruleHeight  = 0.6;
+    const double ruleSpacing = 2.5;
+
+    return Container(
       width: panelW,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      decoration: BoxDecoration(
+        color: noteBg,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.grey.shade300, width: 0.5),
+      ),
+      child: Stack(
+        children: [
+          // マージン縦線（左端）
+          Positioned(
+            left: marginLineX,
+            top: 0,
+            bottom: 0,
+            child: Container(width: 1.0, color: noteMargin),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(marginLineX + 6, 6, 6, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
             // カテゴリ
             SizedBox(
               width: maxTextW,
@@ -633,6 +655,8 @@ class _ModelInfoPanel extends StatelessWidget {
                 ),
               ),
             ),
+            SizedBox(height: ruleSpacing),
+            Container(height: ruleHeight, color: noteRuleLine),
             SizedBox(height: spacing),
             // モデル名
             SizedBox(
@@ -648,6 +672,8 @@ class _ModelInfoPanel extends StatelessWidget {
                 ),
               ),
             ),
+            SizedBox(height: ruleSpacing),
+            Container(height: ruleHeight, color: noteRuleLine),
             // 作者
             if (model.authorName.isNotEmpty) ...[
               SizedBox(height: spacing),
@@ -663,6 +689,8 @@ class _ModelInfoPanel extends StatelessWidget {
                   ),
                 ),
               ),
+              SizedBox(height: ruleSpacing),
+              Container(height: ruleHeight, color: noteRuleLine),
             ],
             // ループ・シャッフル・最大作業時間バッジ
             if (loop || shuffle || maxWorkTimeSec > 0) ...[
@@ -697,8 +725,10 @@ class _ModelInfoPanel extends StatelessWidget {
                 ],
               ),
             ],
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -42,14 +42,42 @@ class _FullImageScreenState extends State<FullImageScreen> {
   late DrawingModel _current;
 
   /// 同名モデルをカテゴリ順に並べたペアリスト（自身を含む）
-  late final List<DrawingModel> _pairs;
+  late List<DrawingModel> _pairs;
 
   /// _pairs 内の現在表示インデックス。
-  /// indexOf によるオブジェクト参照比較を避けるためインデックスで管理する。
   late int _currentPairIndex;
 
   /// ペアが2件以上ある（= 切り替え可能）か
   bool get _hasPair => _pairs.length >= 2;
+
+  /// 現在のカテゴリと同じモデルのリスト（前へ/次へボタン用）
+  late List<DrawingModel> _sameCategoryAssets;
+
+  /// _sameCategoryAssets 内での現在インデックス
+  late int _categoryIndex;
+
+  // カテゴリソート順での現在カテゴリの位置
+  int get _currentCategorySortIndex =>
+      DrawingConfig.categorySortIndex(_current.categoryId);
+
+  // allAssets に存在するカテゴリIDを DrawingConfig の定義順で返す
+  List<String> get _presentCategoryIds {
+    final ids = widget.allAssets.map((a) => a.categoryId).toSet();
+    return DrawingConfig.categories
+        .where((c) => ids.contains(c.id))
+        .map((c) => c.id)
+        .toList();
+  }
+
+  // 非活性条件：全カテゴリ中の先頭かつカテゴリ内先頭
+  bool get _isFirst =>
+      _presentCategoryIds.first == _current.categoryId &&
+      _categoryIndex <= 0;
+
+  // 非活性条件：全カテゴリ中の末尾かつカテゴリ内末尾
+  bool get _isLast =>
+      _presentCategoryIds.last == _current.categoryId &&
+      _categoryIndex >= _sameCategoryAssets.length - 1;
 
   // ペア内のカテゴリ表示優先順は DrawingConfig.categorySortIndex に従う
 
@@ -64,16 +92,116 @@ class _FullImageScreenState extends State<FullImageScreen> {
       ..sort((a, b) => DrawingConfig.categorySortIndex(a.categoryId)
           .compareTo(DrawingConfig.categorySortIndex(b.categoryId)));
 
-    // initialAsset に対応するインデックスをパスで特定する
+    // ペアリスト内でのインデックス
     final idx = _pairs.indexWhere((a) => a.path == widget.initialAsset.path);
     _currentPairIndex = idx != -1 ? idx : 0;
+
+    // 同カテゴリのアセットリストと現在インデックス
+    _sameCategoryAssets = _buildSameCategoryList(widget.initialAsset);
+    final cIdx = _sameCategoryAssets.indexWhere((a) => a.path == widget.initialAsset.path);
+    _categoryIndex = cIdx != -1 ? cIdx : 0;
   }
 
-  /// ペアリスト内で次のモデルに切り替える
+  /// ペアリスト内で次のモデルに切り替える（頭身切り替えボタン）
   void _togglePair() {
     if (!_hasPair) return;
     _currentPairIndex = (_currentPairIndex + 1) % _pairs.length;
-    setState(() => _current = _pairs[_currentPairIndex]);
+    setState(() {
+      _current = _pairs[_currentPairIndex];
+      // カテゴリが変わったので前後移動コンテキストを更新
+      _refreshCategoryContext();
+    });
+  }
+
+  /// 前の画像に移動（カテゴリ先頭の場合は前カテゴリの末尾へ）
+  void _prevAsset() {
+    if (_isFirst) return;
+    if (_categoryIndex > 0) {
+      // カテゴリ内を前へ
+      _categoryIndex--;
+      _switchToCategory();
+    } else {
+      // カテゴリをまたいで前カテゴリの末尾へ
+      final ids = _presentCategoryIds;
+      final pos = ids.indexOf(_current.categoryId);
+      final prevCategoryId = ids[pos - 1];
+      final prevList = _buildSameCategoryListById(prevCategoryId);
+      _moveToCategoryList(prevList, prevList.length - 1);
+    }
+  }
+
+  /// 次の画像に移動（カテゴリ末尾の場合は次カテゴリの先頭へ）
+  void _nextAsset() {
+    if (_isLast) return;
+    if (_categoryIndex < _sameCategoryAssets.length - 1) {
+      // カテゴリ内を次へ
+      _categoryIndex++;
+      _switchToCategory();
+    } else {
+      // カテゴリをまたいで次カテゴリの先頭へ
+      final ids = _presentCategoryIds;
+      final pos = ids.indexOf(_current.categoryId);
+      final nextCategoryId = ids[pos + 1];
+      final nextList = _buildSameCategoryListById(nextCategoryId);
+      _moveToCategoryList(nextList, 0);
+    }
+  }
+
+  /// _categoryIndex の画像に切り替え、ペアリストを再構築する
+  void _switchToCategory() {
+    final next = _sameCategoryAssets[_categoryIndex];
+    final newPairs = widget.allAssets
+        .where((a) => a.modelName == next.modelName)
+        .toList()
+      ..sort((a, b) => DrawingConfig.categorySortIndex(a.categoryId)
+          .compareTo(DrawingConfig.categorySortIndex(b.categoryId)));
+    final pIdx = newPairs.indexWhere((a) => a.path == next.path);
+    setState(() {
+      _current = next;
+      _pairs
+        ..clear()
+        ..addAll(newPairs);
+      _currentPairIndex = pIdx != -1 ? pIdx : 0;
+    });
+  }
+
+  /// 頭身切り替え後：同カテゴリリストと現在インデックスを更新する
+  void _refreshCategoryContext() {
+    _sameCategoryAssets = _buildSameCategoryList(_current);
+    final cIdx = _sameCategoryAssets.indexWhere((a) => a.path == _current.path);
+    _categoryIndex = cIdx != -1 ? cIdx : 0;
+  }
+
+  /// 指定モデルと同じ categoryId のアセットをモデルID順で返す
+  List<DrawingModel> _buildSameCategoryList(DrawingModel model) =>
+      _buildSameCategoryListById(model.categoryId);
+
+  /// 指定 categoryId のアセットをモデルID順で返す
+  List<DrawingModel> _buildSameCategoryListById(String categoryId) {
+    return widget.allAssets
+        .where((a) => a.categoryId == categoryId)
+        .toList()
+      ..sort((a, b) => a.modelId.compareTo(b.modelId));
+  }
+
+  /// 指定リスト・指定インデックスの画像に移動しコンテキストを更新する
+  void _moveToCategoryList(List<DrawingModel> list, int index) {
+    final next = list[index];
+    final newPairs = widget.allAssets
+        .where((a) => a.modelName == next.modelName)
+        .toList()
+      ..sort((a, b) => DrawingConfig.categorySortIndex(a.categoryId)
+          .compareTo(DrawingConfig.categorySortIndex(b.categoryId)));
+    final pIdx = newPairs.indexWhere((a) => a.path == next.path);
+    setState(() {
+      _current = next;
+      _sameCategoryAssets = list;
+      _categoryIndex = index;
+      _pairs
+        ..clear()
+        ..addAll(newPairs);
+      _currentPairIndex = pIdx != -1 ? pIdx : 0;
+    });
   }
 
   @override
@@ -110,32 +238,59 @@ class _FullImageScreenState extends State<FullImageScreen> {
                 ),
               ),
 
-              // ── 頭身切り替えボタン ──────────────────────────────
-              if (_hasPair)
-                Padding(
-                  padding:
-                      EdgeInsets.fromLTRB(outerPad, 8, outerPad, 4),
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.appBarColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 44),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+              // ── ボタンエリア（前へ ／ 頭身切り替え ／ 次へ）3分割 ──
+              Padding(
+                padding: EdgeInsets.fromLTRB(outerPad, 8, outerPad, 4),
+                child: Row(
+                  children: [
+                    // 前の画像へ
+                    Expanded(
+                      child: _NavButton(
+                        icon: Icons.chevron_left,
+                        color: widget.appBarColor,
+                        enabled: !_isFirst,
+                        onPressed: _prevAsset,
+                      ),
                     ),
-                    onPressed: _togglePair,
-                    icon: const Icon(Icons.swap_vert, size: 18),
-                    label: Text(
-                      '${AppStrings.drawingToggleHeightButton}（${_current.categoryShortName}）',
-                      style: const TextStyle(fontSize: 14),
+                    // 頭身切り替え（ペアがある場合のみ）
+                    if (_hasPair) ...[
+                      const SizedBox(width: 6),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: widget.appBarColor,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 44),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: _togglePair,
+                          icon: const Icon(Icons.swap_vert, size: 18),
+                          label: Text(
+                            '${AppStrings.drawingToggleHeightButton}（${_current.categoryShortName}）',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
+                    // 次の画像へ
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _NavButton(
+                        icon: Icons.chevron_right,
+                        color: widget.appBarColor,
+                        enabled: !_isLast,
+                        onPressed: _nextAsset,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
+              ),
 
               // ── ピンチヒント ────────────────────────────────────
               Padding(
-                padding: EdgeInsets.fromLTRB(
-                    outerPad, _hasPair ? 4 : 8, outerPad, 16),
+                padding: EdgeInsets.fromLTRB(outerPad, 4, outerPad, 16),
                 child: Text(
                   AppStrings.drawingPinchHint,
                   textAlign: TextAlign.center,
@@ -193,6 +348,38 @@ class _InfoBar extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ── 前へ/次へナビゲーションボタン ─────────────────────────
+// アイコンのみ・四角ボタン。非活性時はグレーで表示。
+class _NavButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  const _NavButton({
+    required this.icon,
+    required this.color,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: enabled ? color : Colors.grey.shade300,
+        foregroundColor: enabled ? Colors.white : Colors.grey.shade500,
+        minimumSize: const Size(0, 44),
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10)),
+      ),
+      onPressed: enabled ? onPressed : null,
+      child: Icon(icon, size: 28),
     );
   }
 }

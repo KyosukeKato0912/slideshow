@@ -78,6 +78,8 @@ abstract class AppStrings {
   static const String drawingSummaryDurationPrefix = '切替';  // 切替: X秒
   static const String drawingSummaryMaxTimePrefix  = '上限';  // 上限: X分 / 無制限
 
+  static const String drawingPrevLabel           = '前の画像';
+  static const String drawingNextLabel           = '次の画像';
   static const String drawingToggleHeightButton = '頭身切り替え';
   static const String drawingNoPairLabel = 'ペアなし';
   static const String drawingAuthorPrefix = '作者：';
