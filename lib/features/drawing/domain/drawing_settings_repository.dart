@@ -11,11 +11,13 @@ class DrawingSettingsRepository {
   DrawingSettingsRepository._();
 
   // ── SharedPreferences キー ─────────────────────────────
-  static const _keyDurationSec = 'slide_duration_sec';
-  static const _keyLoop = 'loop';
-  static const _keyShuffle = 'shuffle';
-  static const _keySelectedCategories = 'selected_categories';
-  static const _keyMaxWorkTimeSec = 'max_work_time_sec';
+  // 将来他機能でも同名設定が生まれた場合のキー衝突を防ぐため
+  // 'drawing_' プレフィックスを付与する。
+  static const _keyDurationSec = 'drawing_slide_duration_sec';
+  static const _keyLoop = 'drawing_loop';
+  static const _keyShuffle = 'drawing_shuffle';
+  static const _keySelectedCategories = 'drawing_selected_categories';
+  static const _keyMaxWorkTimeSec = 'drawing_max_work_time_sec';
 
   // ── デフォルト値 ───────────────────────────────────────
   static const int defaultDurationSec = AppValues.drawingDurationMinSec;

@@ -58,21 +58,33 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
   late List<DrawingModel> _playlist;
   late List<bool> _isPairTransition;
 
+  // 前の周のプレイリスト（ループ+前へ で正しく戻れるよう保持）
+  // null = 前の周は存在しない（最初の周）
+  List<DrawingModel>? _prevPlaylist;
+  List<bool>? _prevIsPairTransition;
+
   int _currentIndex = 0;
   bool _isPlaying = false;
   bool _isCounting = true;
   bool _isFinished = false;
   bool _isTimeUp = false; // 最大作業時間超過による終了
   bool _isShowingLabel = false;
+  bool _isLabelFadingOut = false; // フェードアウト中フラグ（後半0.2秒）
   int _countdown = AppValues.drawingCountdownSec;
 
   int _remaining = 0;
   int _pausedRemaining = 0;
   DateTime? _slideStartTime;
 
-  // 最大作業時間：スライドショー稼働中の経過秒数を積算する
-  // 一時停止・ラベル表示・開始カウントダウン中はカウントしない
-  int _workElapsedSec = 0;
+  // 最大作業時間：スライドショー稼働中の経過秒数を管理する
+  // Timer.periodicの累積ではなくDateTimeベースで計算することでドリフトを防ぐ
+  //
+  // _workStartTime  : 現在の稼働区間の開始時刻（一時停止・再開のたびに更新）
+  // _workPausedSec  : 過去に稼働した区間の合計秒数（一時停止時に加算）
+  // workElapsedSec  : getter で _workPausedSec + 現在区間の経過秒数を返す
+  DateTime? _workStartTime;
+  int _workPausedSec = 0;
+
   // 現在の画像が表示された時点の作業経過秒数。
   // ボタン切り替え時にここまで巻き戻すことで、途中切り替え分をなかったことにする。
   int _slideStartWorkElapsed = 0;
@@ -90,6 +102,14 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
     if (_slideStartTime == null) return _durationSec;
     final elapsed = DateTime.now().difference(_slideStartTime!).inSeconds;
     return (_durationSec - elapsed).clamp(0, _durationSec);
+  }
+
+  /// 稼働中の経過秒数（DateTimeベース・ドリフトしない）
+  int get _workElapsedSec {
+    final base = _workPausedSec;
+    final start = _workStartTime;
+    if (start == null) return base;
+    return base + DateTime.now().difference(start).inSeconds;
   }
 
   // ── プレイリスト構築 ─────────────────────────────────────
@@ -156,7 +176,7 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
   // ── 最大作業時間超過 ───────────────────────────────────
   void _onTimeUp() {
     if (!mounted || _isFinished || _isTimeUp) return;
-    _workElapsedTimer?.cancel();
+    _stopWorkElapsedTimer(); // null リセットも行う
     _slideshowTimer?.cancel();
     _remainingTimer?.cancel();
     _labelTimer?.cancel();
@@ -167,38 +187,54 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
   }
 
   // ── 作業経過タイマー起動 ──────────────────────────────
-  // 画面全体で1本だけ動かす。呼び出し元：最初の _showLabelThenStart 完了後と _resume のみ。
-  // 一時停止中・開始カウントダウン中・ラベル表示中は動かさない（_stopWorkElapsedTimer で止める）。
-  // ボタン切り替え時はタイマーを止めず、消費分だけ _workElapsedSec を手動加算する。
+  // 稼働区間の開始時刻を記録し、1秒ごとに超過チェックと再描画を行う。
+  // 実際の経過秒数は _workElapsedSec getter が DateTimeベースで計算するので
+  // Timer.periodicのドリフトはカウントに影響しない。
   void _startWorkElapsedTimer() {
     if (_maxWorkTimeSec == 0) return; // 無制限は不要
     _workElapsedTimer?.cancel();
+    _workStartTime = DateTime.now(); // この区間の開始時刻を記録
     _workElapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      _workElapsedSec++;
+      // 超過チェックはgetterの値（DateTimeベース）で行う
       if (_workElapsedSec >= _maxWorkTimeSec) {
         _onTimeUp();
+        return;
       }
+      setState(() {}); // バッジ表示を毎秒更新
     });
   }
 
   // ── 作業経過タイマー停止 ──────────────────────────────
+  // 停止時に稼働した秒数を _workPausedSec に加算し、_workStartTime をリセットする
   void _stopWorkElapsedTimer() {
     _workElapsedTimer?.cancel();
+    _workElapsedTimer = null; // isActive チェックの誤判定を防ぐためnullにリセット
+    // 今の区間で稼働した分を蓄積し、次の再開時の基準をリセット
+    if (_workStartTime != null) {
+      _workPausedSec += DateTime.now().difference(_workStartTime!).inSeconds;
+      _workStartTime = null;
+    }
   }
 
   // ── 開始カウントダウン ──────────────────────────────────
   void _startCountdown() {
+    final countdownStart = DateTime.now();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_countdown <= 1) {
+      if (!mounted) return;
+      // DateTimeベースで残り秒数を計算（ドリフト防止）
+      final elapsed = DateTime.now().difference(countdownStart).inSeconds;
+      final remaining = AppValues.drawingCountdownSec - elapsed;
+      if (remaining <= 0) {
         timer.cancel();
         setState(() {
+          _countdown = 0;
           _isCounting = false;
           _isPlaying = true;
         });
         _showLabelThenStart();
       } else {
-        setState(() => _countdown--);
+        setState(() => _countdown = remaining);
       }
     });
   }
@@ -220,17 +256,30 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
 
   // ── 0.5秒モデル名ラベルを表示してからスライド開始 ────────
   // [skipLabel] がtrueの場合（ペア内遷移・手動ボタン操作）はラベルをスキップ
+  // 前半 300ms: 完全表示 → 後半 200ms: フェードアウト → スライド開始
   void _showLabelThenStart({bool skipLabel = false}) {
     _labelTimer?.cancel();
     if (skipLabel) {
       _startSlideshow();
       return;
     }
-    setState(() => _isShowingLabel = true);
-    _labelTimer = Timer(const Duration(milliseconds: 500), () {
+    setState(() {
+      _isShowingLabel = true;
+      _isLabelFadingOut = false;
+    });
+    // 300ms後にフェードアウト開始
+    _labelTimer = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
-      setState(() => _isShowingLabel = false);
-      _startSlideshow();
+      setState(() => _isLabelFadingOut = true);
+      // さらに200ms後にラベルを非表示にしてスライド開始
+      _labelTimer = Timer(const Duration(milliseconds: 200), () {
+        if (!mounted) return;
+        setState(() {
+          _isShowingLabel = false;
+          _isLabelFadingOut = false;
+        });
+        _startSlideshow();
+      });
     });
   }
 
@@ -240,7 +289,8 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
     _restartRemainingTimer();
     // 作業タイマー：まだ起動していない場合（初回）のみ起動する。
     // ボタン切り替え時は再起動せず、_workElapsedSec の手動加算で時間を管理する。
-    if (_workElapsedTimer == null || !(_workElapsedTimer!.isActive)) {
+    // _stopWorkElapsedTimer() が null にリセットするため、null チェックで十分。
+    if (_workElapsedTimer == null) {
       _startWorkElapsedTimer();
     }
     // この画像の表示開始時点の作業経過を記録（ボタン切り替え時の巻き戻し基準）
@@ -257,9 +307,14 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
 
     if (isLast) {
       if (_loop) {
+        // 周が変わる前に現在のプレイリストを前周として退避（前へ で戻れるようにする）
+        final savedPlaylist = List<DrawingModel>.of(_playlist);
+        final savedTransition = List<bool>.of(_isPairTransition);
         // 周が変わるごとに再シャッフルしてプレイリストを再構築
         final result = _buildPlaylist(_sourceModels, _shuffle);
         setState(() {
+          _prevPlaylist = savedPlaylist;
+          _prevIsPairTransition = savedTransition;
           _playlist = result.playlist;
           _isPairTransition = result.isPairTransition;
           _currentIndex = 0;
@@ -310,18 +365,21 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
 
   // ── 最初から ───────────────────────────────────────────
   void _restart() {
-    _workElapsedTimer?.cancel();
+    _stopWorkElapsedTimer(); // null リセットも行う
     _slideshowTimer?.cancel();
     _remainingTimer?.cancel();
     // 再スタート時は再シャッフルしてプレイリストを再構築
     final result = _buildPlaylist(_sourceModels, _shuffle);
     setState(() {
+      _prevPlaylist = null; // 前周履歴もリセット
+      _prevIsPairTransition = null;
       _playlist = result.playlist;
       _isPairTransition = result.isPairTransition;
       _currentIndex = 0;
       _isFinished = false;
       _isTimeUp = false;
-      _workElapsedSec = 0; // 経過秒数リセット
+      _workPausedSec = 0; // 経過秒数リセット
+      _workStartTime = null;
       _slideStartWorkElapsed = 0;
       _isPlaying = true;
     });
@@ -330,22 +388,39 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
 
   // ── 前のモデルへ ───────────────────────────────────────
   // ループ+シャッフル時：先頭で「前へ」を押したら周をまたいで1つ前に戻る
+  // 前周のプレイリストが退避済みであれば復元し、なければ新規ビルドする
   void _prev() {
     _slideshowTimer?.cancel();
     // ボタン切り替え：この画像を見た時間をなかったことにするため、
     // 作業経過をこの画像が表示された時点（_slideStartWorkElapsed）に巻き戻す。
-    _workElapsedSec = _slideStartWorkElapsed;
+    _workPausedSec = _slideStartWorkElapsed;
+    _workStartTime = DateTime.now(); // 巻き戻し後の稼働区間を即開始
     _pausedRemaining = _durationSec;
     if (_currentIndex > 0) {
       setState(() => _currentIndex--);
     } else if (_loop) {
-      // 先頭で前へ → 前周の最後に戻る（再シャッフルして末尾へ）
-      final result = _buildPlaylist(_sourceModels, _shuffle);
-      setState(() {
-        _playlist = result.playlist;
-        _isPairTransition = result.isPairTransition;
-        _currentIndex = _playlist.length - 1;
-      });
+      // 先頭で前へ → 前周の最後に戻る
+      // 退避済みプレイリストがあればそれを復元（シャッフルが変わらない）
+      // なければ最初の周なので新規ビルド
+      final prevP = _prevPlaylist;
+      final prevT = _prevIsPairTransition;
+      if (prevP != null && prevT != null) {
+        setState(() {
+          _playlist = prevP;
+          _isPairTransition = prevT;
+          _prevPlaylist = null;
+          _prevIsPairTransition = null;
+          _currentIndex = _playlist.length - 1;
+        });
+      } else {
+        // 最初の周の先頭で前へ → ループ折り返し（新規ビルド）
+        final result = _buildPlaylist(_sourceModels, _shuffle);
+        setState(() {
+          _playlist = result.playlist;
+          _isPairTransition = result.isPairTransition;
+          _currentIndex = _playlist.length - 1;
+        });
+      }
     } else {
       return; // ループなし先頭は何もしない
     }
@@ -359,11 +434,17 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
     _slideshowTimer?.cancel();
     // ボタン切り替え：この画像を見た時間をなかったことにするため、
     // 作業経過をこの画像が表示された時点（_slideStartWorkElapsed）に巻き戻す。
-    _workElapsedSec = _slideStartWorkElapsed;
+    _workPausedSec = _slideStartWorkElapsed;
+    _workStartTime = DateTime.now(); // 巻き戻し後の稼働区間を即開始
     _pausedRemaining = _durationSec;
     if (isLast && _loop) {
+      // 周が変わる前に現在のプレイリストを前周として退避（前へ で戻れるようにする）
+      final savedPlaylist = List<DrawingModel>.of(_playlist);
+      final savedTransition = List<bool>.of(_isPairTransition);
       final result = _buildPlaylist(_sourceModels, _shuffle);
       setState(() {
+        _prevPlaylist = savedPlaylist;
+        _prevIsPairTransition = savedTransition;
         _playlist = result.playlist;
         _isPairTransition = result.isPairTransition;
         _currentIndex = 0;
@@ -376,7 +457,7 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
 
   @override
   void dispose() {
-    _workElapsedTimer?.cancel();
+    _stopWorkElapsedTimer(); // null リセットも行う
     _countdownTimer?.cancel();
     _slideshowTimer?.cancel();
     _remainingTimer?.cancel();
@@ -412,7 +493,9 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                     : _isShowingLabel
                         ? Center(
                             child: _ModelNameLabelDisplay(
-                                modelName: _currentModel.modelName),
+                              modelName: _currentModel.modelName,
+                              isFadingOut: _isLabelFadingOut,
+                            ),
                           )
                         : LayoutBuilder(
                             builder: (context, constraints) {
@@ -964,22 +1047,31 @@ class _StartCountdownDisplay extends StatelessWidget {
 
 // ══════════════════════════════════════════════════════════
 // 0.5秒表示モデル名ラベル
+// 前半300ms：完全表示、後半200ms：AnimatedOpacityでフェードアウト
 // ══════════════════════════════════════════════════════════
 class _ModelNameLabelDisplay extends StatelessWidget {
   final String modelName;
+  final bool isFadingOut;
 
-  const _ModelNameLabelDisplay({required this.modelName});
+  const _ModelNameLabelDisplay({
+    required this.modelName,
+    required this.isFadingOut,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      modelName,
-      style: const TextStyle(
-        fontSize: 48,
-        fontWeight: FontWeight.bold,
-        color: AppColors.drawing,
+    return AnimatedOpacity(
+      opacity: isFadingOut ? 0.0 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      child: Text(
+        modelName,
+        style: const TextStyle(
+          fontSize: 48,
+          fontWeight: FontWeight.bold,
+          color: AppColors.drawing,
+        ),
+        textAlign: TextAlign.center,
       ),
-      textAlign: TextAlign.center,
     );
   }
 }
@@ -1023,7 +1115,9 @@ class _EndScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          isTimeUp ? '最大作業時間に達しました' : '全 $totalCount 枚 完了',
+          isTimeUp
+              ? AppStrings.drawingEndTimeUpMessage
+              : '${AppStrings.drawingEndCompletePrefix}$totalCount${AppStrings.drawingEndCompleteSuffix}',
           style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 48),

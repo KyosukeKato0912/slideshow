@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -6,12 +7,16 @@ import 'core/router/app_router.dart';
 //
 // MaterialApp の設定・テーマ注入・初期ルートを定義する。
 // エントリポイント（main.dart）からのみ呼び出す。
+//
+// ⚠ 暫定実装：現フェーズは Navigator.push を使用。
+//   go_router 導入時は MaterialApp.router + GoRouter に移行する。
+//   ルート定義は app_router.dart に集約済み。
 // ══════════════════════════════════════════════════════════
-class App extends StatelessWidget {
+class App extends ConsumerWidget {
   const App({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'イラスト練習支援アプリ',
       theme: ThemeData(

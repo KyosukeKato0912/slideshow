@@ -3,12 +3,12 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/extensions/int_ext.dart';
+import '../../../core/router/app_router.dart';
 import '../../../shared/components/app_bar_widget.dart';
 import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 import '../domain/drawing_settings.dart';
 import '../domain/drawing_settings_repository.dart';
-import 'drawing_main_screen.dart';
 import 'drawing_settings_screen.dart';
 import 'model_list_screen.dart';
 
@@ -96,11 +96,7 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
           DrawingSettingsRepository.defaultMaxWorkTimeSec,
     );
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (_) => DrawingMainScreen(settings: settings)),
-    );
+    Navigator.push(context, AppRouter.drawingMain(settings));
   }
 
   @override

@@ -84,6 +84,14 @@ abstract class AppStrings {
   static const String drawingNoPairLabel = 'ペアなし';
   static const String drawingAuthorPrefix = '作者：';
 
+  // ── X秒ドローイング 終了画面 ─────────────────────────────
+  /// 最大作業時間超過による終了メッセージ
+  static const String drawingEndTimeUpMessage = '最大作業時間に達しました';
+  /// 全枚数完了メッセージのプレフィックス（後ろに枚数と suffix が続く）
+  static const String drawingEndCompletePrefix = '全 ';
+  /// 全枚数完了メッセージのサフィックス
+  static const String drawingEndCompleteSuffix = ' 枚 完了';
+
   // ── モデル一覧 ──────────────────────────────────────────
   static const String modelListCategoryLabel = 'カテゴリ';
   static const String modelListCategoryAll = 'すべて';

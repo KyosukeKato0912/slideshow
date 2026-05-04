@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -11,8 +12,7 @@ import 'app.dart';
 //   await Hive.initFlutter();
 //   await HiveAdapters.registerAll();
 //   await NotificationService.initialize();
-//   runApp(const ProviderScope(child: App()));
 // ══════════════════════════════════════════════════════════
 void main() {
-  runApp(const App());
+  runApp(const ProviderScope(child: App()));
 }

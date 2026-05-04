@@ -11,7 +11,11 @@ import '../components/app_bar_widget.dart';
 //
 // X秒ドローイング モデル一覧から遷移する拡大表示画面。
 // 現フェーズは DrawingModel のみ対応。
-// 他機能が利用する際は [displaySource] 等で表示情報を切り替える。
+//
+// ⚠ 依存注意：shared → features/drawing への参照が発生している。
+//   他機能が利用する際は DrawingModel を抽象インターフェース
+//   （例: DisplayableAsset）に置き換え、依存を逆転させること。
+//   変更対象: initialAsset・allAssets の型 + ペア検索ロジック。
 //
 // 機能：
 //   - ピンチ操作による拡大・縮小（InteractiveViewer）
