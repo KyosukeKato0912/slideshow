@@ -243,7 +243,7 @@ class _FullImageScreenState extends State<FullImageScreen> {
                 padding: EdgeInsets.fromLTRB(outerPad, 8, outerPad, 4),
                 child: Row(
                   children: [
-                    // 前の画像へ
+                    // 前の画像へ（常に同じ幅・位置）
                     Expanded(
                       child: _NavButton(
                         icon: Icons.chevron_left,
@@ -252,29 +252,29 @@ class _FullImageScreenState extends State<FullImageScreen> {
                         onPressed: _prevAsset,
                       ),
                     ),
-                    // 頭身切り替え（ペアがある場合のみ）
-                    if (_hasPair) ...[
-                      const SizedBox(width: 6),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: widget.appBarColor,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(0, 44),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                          ),
-                          onPressed: _togglePair,
-                          icon: const Icon(Icons.swap_vert, size: 18),
-                          label: Text(
-                            '${AppStrings.drawingToggleHeightButton}（${_current.categoryShortName}）',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      ),
-                    ],
-                    // 次の画像へ
+                    // 頭身切り替え：ペアあり→実ボタン、なし→透明ダミーで幅を確保
+                    const SizedBox(width: 6),
+                    Expanded(
+                      flex: 2,
+                      child: _hasPair
+                          ? ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: widget.appBarColor,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(0, 44),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: _togglePair,
+                              icon: const Icon(Icons.swap_vert, size: 18),
+                              label: Text(
+                                '${AppStrings.drawingToggleHeightButton}（${_current.categoryShortName}）',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            )
+                          : const SizedBox(height: 44), // 幅確保用ダミー
+                    ),
+                    // 次の画像へ（常に同じ幅・位置）
                     const SizedBox(width: 6),
                     Expanded(
                       child: _NavButton(

@@ -737,7 +737,11 @@ class _ModelInfoPanel extends StatelessWidget {
 // ══════════════════════════════════════════════════════════
 // 右帯：円形タイマー
 // ══════════════════════════════════════════════════════════
-class _CircularCountdownTimer extends StatelessWidget {
+// ══════════════════════════════════════════════════════════
+// 円形カウントダウンタイマー
+// 残り5秒以下でアニメーション演出（パルス・色変化・背景フラッシュ）
+// ══════════════════════════════════════════════════════════
+class _CircularCountdownTimer extends StatefulWidget {
   final int remaining;
   final int durationSec;
   final bool isPaused;
@@ -751,61 +755,170 @@ class _CircularCountdownTimer extends StatelessWidget {
   });
 
   @override
+  State<_CircularCountdownTimer> createState() =>
+      _CircularCountdownTimerState();
+}
+
+class _CircularCountdownTimerState extends State<_CircularCountdownTimer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _scaleAnim;  // 数字のスケール 1.0→1.35→1.0
+  late final Animation<double> _flashAnim;  // 背景フラッシュ opacity 0.0→0.4→0.0
+
+  // アニメーションをトリガーする閾値（秒）
+  static const int _alertThreshold = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 1.0, end: 1.35)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 40),
+      TweenSequenceItem(
+          tween: Tween(begin: 1.35, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeIn)),
+          weight: 60),
+    ]).animate(_pulseCtrl);
+    _flashAnim = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 0.0, end: 0.4)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 30),
+      TweenSequenceItem(
+          tween: Tween(begin: 0.4, end: 0.0)
+              .chain(CurveTween(curve: Curves.easeIn)),
+          weight: 70),
+    ]).animate(_pulseCtrl);
+  }
+
+  @override
+  void didUpdateWidget(_CircularCountdownTimer old) {
+    super.didUpdateWidget(old);
+    // 残り秒数が変化 & アラート閾値以内 & 再生中 → パルス発火
+    if (old.remaining != widget.remaining &&
+        widget.remaining <= _alertThreshold &&
+        widget.remaining > 0 &&
+        !widget.isPaused) {
+      _pulseCtrl
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  // 残り秒数に応じたリングカラー
+  Color _ringColor() {
+    if (widget.isPaused) return Colors.grey.shade400;
+    if (widget.remaining <= 2) return Colors.red.shade400;
+    if (widget.remaining <= _alertThreshold) return Colors.orange.shade400;
+    return AppColors.drawing;
+  }
+
+  // 残り秒数に応じた数字カラー
+  Color _numColor() {
+    if (widget.isPaused) return Colors.grey.shade500;
+    if (widget.remaining <= 2) return Colors.red.shade400;
+    if (widget.remaining <= _alertThreshold) return Colors.orange.shade400;
+    return AppColors.drawing;
+  }
+
+  // フラッシュ背景カラー（アラート時のみ有彩色）
+  Color _flashColor() {
+    if (widget.remaining <= 2) return Colors.red.shade200;
+    return Colors.orange.shade200;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final double progress = durationSec > 0 ? remaining / durationSec : 0.0;
-    final double strokeWidth = (size * 0.07).clamp(4.0, 8.0);
-    final double numFontSize = (size * 0.30).clamp(18.0, 36.0);
-    final double labelFontSize = (size * 0.13).clamp(9.0, 15.0);
+    final double progress =
+        widget.durationSec > 0 ? widget.remaining / widget.durationSec : 0.0;
+    final double strokeWidth = (widget.size * 0.07).clamp(4.0, 8.0);
+    final double numFontSize = (widget.size * 0.30).clamp(18.0, 36.0);
+    final double labelFontSize = (widget.size * 0.13).clamp(9.0, 15.0);
+    final bool isAlert =
+        widget.remaining <= _alertThreshold && !widget.isPaused;
 
     return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.drawingLight,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.drawingBorder, width: 1),
-            ),
-          ),
-          CircularProgressIndicator(
-            value: progress,
-            strokeWidth: strokeWidth,
-            backgroundColor: AppColors.drawingBorder,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              isPaused ? Colors.grey.shade400 : AppColors.drawing,
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$remaining',
-                  style: TextStyle(
-                    fontSize: numFontSize,
-                    fontWeight: FontWeight.bold,
-                    color: isPaused ? Colors.grey.shade500 : AppColors.drawing,
-                    height: 1.0,
+      width: widget.size,
+      height: widget.size,
+      child: AnimatedBuilder(
+        animation: _pulseCtrl,
+        builder: (context, _) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // ── ベース背景 ──────────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.drawingLight,
+                  shape: BoxShape.circle,
+                  border:
+                      Border.all(color: AppColors.drawingBorder, width: 1),
+                ),
+              ),
+              // ── フラッシュ背景（アラート時のみ表示） ────
+              if (isAlert)
+                Opacity(
+                  opacity: _flashAnim.value,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _flashColor(),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-                Text(
-                  isPaused
-                      ? AppStrings.drawingPauseLabel
-                      : AppStrings.drawingSecLabel,
-                  style: TextStyle(
-                    fontSize: labelFontSize,
-                    color: isPaused
-                        ? Colors.grey.shade400
-                        : AppColors.drawing.withAlpha(153),
+              // ── プログレスリング ─────────────────────────
+              CircularProgressIndicator(
+                value: progress,
+                strokeWidth: strokeWidth,
+                backgroundColor: AppColors.drawingBorder,
+                valueColor: AlwaysStoppedAnimation<Color>(_ringColor()),
+              ),
+              // ── 数字・ラベル（アラート時はパルス） ───────
+              Center(
+                child: Transform.scale(
+                  scale: isAlert ? _scaleAnim.value : 1.0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${widget.remaining}',
+                        style: TextStyle(
+                          fontSize: numFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: _numColor(),
+                          height: 1.0,
+                        ),
+                      ),
+                      Text(
+                        widget.isPaused
+                            ? AppStrings.drawingPauseLabel
+                            : AppStrings.drawingSecLabel,
+                        style: TextStyle(
+                          fontSize: labelFontSize,
+                          color: widget.isPaused
+                              ? Colors.grey.shade400
+                              : _ringColor().withAlpha(200),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
