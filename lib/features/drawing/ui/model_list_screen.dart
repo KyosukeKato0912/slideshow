@@ -77,7 +77,7 @@ class _ModelListScreenState extends State<ModelListScreen> {
     return Scaffold(
       appBar: AppBarWidget(
         title: AppStrings.drawingModelListTitle,
-        backgroundColor: AppColors.drawing,
+        backgroundColor: AppColors.theme,
       ),
       body: FutureBuilder<List<DrawingModel>>(
         future: _modelsFuture,
@@ -142,7 +142,7 @@ class _ModelListScreenState extends State<ModelListScreen> {
                               style: const TextStyle(fontSize: 12),
                             ),
                             style: TextButton.styleFrom(
-                              foregroundColor: AppColors.drawing,
+                              foregroundColor: AppColors.theme,
                               padding: EdgeInsets.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
@@ -189,11 +189,11 @@ class _CategoryDropdown extends StatelessWidget {
       value: selectedCategoryId,
       decoration: InputDecoration(
         labelText: AppStrings.modelListCategoryLabel,
-        prefixIcon: const Icon(Icons.folder_outlined, color: AppColors.drawing),
+        prefixIcon: const Icon(Icons.folder_outlined, color: AppColors.theme),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.drawing, width: 2),
+          borderSide: const BorderSide(color: AppColors.theme, width: 2),
         ),
         isDense: true,
         contentPadding:
@@ -224,7 +224,7 @@ class _ModelNameSearchField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: AppStrings.modelListModelNameLabel,
         hintText: AppStrings.modelListModelNameHint,
-        prefixIcon: const Icon(Icons.search, color: AppColors.drawing),
+        prefixIcon: const Icon(Icons.search, color: AppColors.theme),
         suffixIcon: controller.text.isNotEmpty
             ? IconButton(
                 icon: const Icon(Icons.clear),
@@ -234,7 +234,7 @@ class _ModelNameSearchField extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.drawing, width: 2),
+          borderSide: const BorderSide(color: AppColors.theme, width: 2),
         ),
         isDense: true,
       ),
@@ -368,13 +368,13 @@ class _ModelThumbnailCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(
-                      color: AppColors.drawingLight,
+                      color: AppColors.themeLight,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       model.categoryName,
                       style: TextStyle(
-                          fontSize: 10, color: AppColors.drawingDark),
+                          fontSize: 10, color: AppColors.themeDark),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -383,7 +383,7 @@ class _ModelThumbnailCard extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(Icons.person_outline,
-                          size: 13, color: AppColors.drawing),
+                          size: 13, color: AppColors.theme),
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(

@@ -35,7 +35,7 @@ class FullImageScreen extends StatefulWidget {
     super.key,
     required this.initialAsset,
     required this.allAssets,
-    this.appBarColor = AppColors.drawing,
+    this.appBarColor = AppColors.theme,
   });
 
   @override

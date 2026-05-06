@@ -9,12 +9,58 @@
 // ・新しい画像を追加する際はこのファイルに定義を追加してから
 //   assets/images/models/ に画像ファイルを配置すること。
 //
+// ■ 表示名の文字列について
+//   カテゴリ名・作者名・モデル名はUIラベルではなくコンテンツのメタデータ
+//   であるため、app_strings.dart には移さずここで管理する。
+//   素材の追加・変更時に1ファイルだけ編集すれば済む構造を維持する。
+//   ※ 将来の多言語化が必要になった場合は、各 Def クラスに nameJa / nameEn
+//     等のフィールドを追加して対応する（app_strings.dart への移行は不要）。
+//
 // ■ ペアの扱いについて
 //   同じモデル名を持つ異カテゴリのモデルが自動的にペアとして扱われる。
 //   （例: mb00001「立ち」と md00001「立ち」は自動でペアになる）
 //   ペアが存在しない場合は独立したモデルとして扱われる。
 //   configにペア設定は不要。
 // ══════════════════════════════════════════════════════════
+
+// ── 終了メッセージ 重み定義 ───────────────────────────────
+
+/// 終了メッセージの抽選重みを表す列挙型。
+///
+/// 実際の重みは [DrawingEndMessageDef.weightValue] で数値に変換される。
+/// high:mid:low = 3:2:1 の比率で出現確率が変わる。
+enum DrawingEndMessageWeight {
+  high, // 高頻度（重み 3）
+  mid, // 中頻度（重み 2）
+  low, // 低頻度（重み 1）
+}
+
+/// 終了画面に表示するサブメッセージの定義。
+///
+/// 表示文言は [AppStrings.drawingEndMessages] の同インデックス要素を使用する。
+/// テキストはここに持たず、app_strings.dart に一元管理する。
+class DrawingEndMessageDef {
+  /// [AppStrings.drawingEndMessages] 内のインデックス
+  final int index;
+  final DrawingEndMessageWeight weight;
+
+  const DrawingEndMessageDef({
+    required this.index,
+    required this.weight,
+  });
+
+  /// 重み列挙型を数値に変換する。
+  int get weightValue {
+    switch (weight) {
+      case DrawingEndMessageWeight.high:
+        return 3;
+      case DrawingEndMessageWeight.mid:
+        return 2;
+      case DrawingEndMessageWeight.low:
+        return 1;
+    }
+  }
+}
 
 // ── カテゴリ定義 ──────────────────────────────────────────
 
@@ -79,8 +125,8 @@ abstract class DrawingConfig {
   static const List<DrawingCategoryDef> categories = [
     DrawingCategoryDef(id: 'c01', name: 'ベーシック(6頭身)', shortName: 'ベーシック'),
     DrawingCategoryDef(id: 'c02', name: 'デフォルメ(2頭身)', shortName: 'デフォルメ'),
-    DrawingCategoryDef(id: 'c03', name: '顔',               shortName: '顔'),
-    DrawingCategoryDef(id: 'c04', name: '手',               shortName: '手'),
+    DrawingCategoryDef(id: 'c03', name: '顔', shortName: '顔'),
+    DrawingCategoryDef(id: 'c04', name: '手', shortName: '手'),
   ];
 
   // ── 作者一覧 ────────────────────────────────────────────
@@ -114,6 +160,30 @@ abstract class DrawingConfig {
     DrawingModelDef(id: 'mh00003', name: '握りこぶし'),
     DrawingModelDef(id: 'mh00004', name: '指さす'),
     DrawingModelDef(id: 'mh00005', name: 'グッド'),
+  ];
+
+  // ══════════════════════════════════════════════════════════
+  // 終了画面：ランダムメッセージ設定
+  // ══════════════════════════════════════════════════════════
+
+  /// 終了時に表示するサブメッセージの定義。
+  ///
+  /// [index] は [AppStrings.drawingEndMessages] のインデックスに対応する。
+  /// 文言の追加・変更は app_strings.dart の [AppStrings.drawingEndMessages] で行い、
+  /// こちらはインデックスと重みのみを管理する。
+  ///
+  /// [weight] 抽選の重み。high=3 / mid=2 / low=1 の比率で出現確率が変わる。
+  static const List<DrawingEndMessageDef> endMessages = [
+    DrawingEndMessageDef(
+        index: 0, weight: DrawingEndMessageWeight.high), // 今日も一歩前進
+    DrawingEndMessageDef(
+        index: 1, weight: DrawingEndMessageWeight.mid), // お疲れ様でした
+    DrawingEndMessageDef(
+        index: 2, weight: DrawingEndMessageWeight.low), // よく頑張りました
+    DrawingEndMessageDef(
+        index: 3, weight: DrawingEndMessageWeight.low), // いいペースです
+    DrawingEndMessageDef(
+        index: 4, weight: DrawingEndMessageWeight.mid), // 明日も少しずつ
   ];
 
   // ══════════════════════════════════════════════════════════

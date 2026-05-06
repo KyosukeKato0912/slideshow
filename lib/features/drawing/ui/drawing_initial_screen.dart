@@ -104,7 +104,7 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
     return Scaffold(
       appBar: AppBarWidget(
         title: AppStrings.drawingInitialTitle,
-        backgroundColor: AppColors.drawing,
+        backgroundColor: AppColors.theme,
       ),
       body: FutureBuilder<_InitialScreenData>(
         future: _dataFuture,
@@ -128,7 +128,7 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.slideshow,
-                          size: 100, color: AppColors.drawing),
+                          size: 100, color: AppColors.theme),
                       const SizedBox(height: 24),
                       Text(
                         AppStrings.drawingStartPrompt,
@@ -158,7 +158,7 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isReady
-                              ? AppColors.drawing
+                              ? AppColors.theme
                               : Colors.grey.shade300,
                           foregroundColor: Colors.white,
                           minimumSize: const Size(double.infinity, 52),
@@ -191,8 +191,8 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
                       // ── モデル一覧 ──────────────────────────
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.drawing,
-                          side: const BorderSide(color: AppColors.drawing),
+                          foregroundColor: AppColors.theme,
+                          side: const BorderSide(color: AppColors.theme),
                           minimumSize: const Size(double.infinity, 52),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -214,8 +214,8 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
                       // ── 設定 ────────────────────────────────
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.drawing,
-                          side: const BorderSide(color: AppColors.drawing),
+                          foregroundColor: AppColors.theme,
+                          side: const BorderSide(color: AppColors.theme),
                           minimumSize: const Size(double.infinity, 52),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -297,16 +297,16 @@ class DrawingSettingsSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.drawingLight,
+        color: AppColors.themeLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.drawingBorder),
+        border: Border.all(color: AppColors.themeBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.tune, size: 14, color: AppColors.drawing.withAlpha(153)),
+              Icon(Icons.tune, size: 14, color: AppColors.theme.withAlpha(153)),
               const SizedBox(width: 4),
               Text(
                 saved != null
@@ -314,7 +314,7 @@ class DrawingSettingsSummaryCard extends StatelessWidget {
                     : AppStrings.drawingDefaultSettings,
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.drawing.withAlpha(153),
+                  color: AppColors.theme.withAlpha(153),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -381,16 +381,16 @@ class _SummaryChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.drawingBorder),
+        border: Border.all(color: AppColors.themeBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: AppColors.drawing),
+          Icon(icon, size: 12, color: AppColors.theme),
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: AppColors.drawing),
+            style: const TextStyle(fontSize: 12, color: AppColors.theme),
           ),
         ],
       ),

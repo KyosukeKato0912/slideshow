@@ -8,7 +8,7 @@ abstract class AppStrings {
   static const String appTitle = 'イラスト練習支援アプリ';
 
   // ── ホーム画面 ──────────────────────────────────────────
-  static const String homeTitle = 'ホーム画面';
+  static const String homeTitle = 'メイン';
   static const String featureDrawing = 'X秒ドローイング';
   static const String featureTopic = 'お題ジェネレーター';
   static const String featureGrowth = '成長記録';
@@ -32,7 +32,7 @@ abstract class AppStrings {
   static const String drawingSettingsButton = '設定';
 
   static const String drawingCountdownLabel = 'まもなく開始します';
-  static const String drawingEndLabel = 'END';
+  static const String drawingEndLabel = 'FINISH!!';
   static const String drawingRestartButton = '最初から';
   static const String drawingPauseLabel = '停止';
   static const String drawingSecLabel = '秒';
@@ -48,7 +48,6 @@ abstract class AppStrings {
 
   static const String drawingSettingsMaxTimeTitle = '⏳ 最大作業時間';
   static const String drawingSettingsMaxTimeUnlimited = '無制限';
-  static const String drawingEndSubLabel = 'お疲れさまでした';
   static const String drawingSettingsDurationTitle = '⏱ 画像切り替え時間';
   static const String drawingSettingsLoopTitle = '🔁 ループ再生';
   static const String drawingSettingsShuffleTitle = '🔀 再生順序';
@@ -91,6 +90,15 @@ abstract class AppStrings {
   static const String drawingEndCompletePrefix = '全 ';
   /// 全枚数完了メッセージのサフィックス
   static const String drawingEndCompleteSuffix = ' 枚 完了';
+  /// 終了時にランダム表示するサブメッセージ一覧。
+  /// インデックスは DrawingConfig.endMessages の index フィールドと対応する。
+  static const List<String> drawingEndMessages = [
+    '今日も一歩前進',   // index: 0
+    'お疲れ様でした',   // index: 1
+    'よく頑張りました', // index: 2
+    'いいペースです',   // index: 3
+    '明日も少しずつ',   // index: 4
+  ];
 
   // ── モデル一覧 ──────────────────────────────────────────
   static const String modelListCategoryLabel = 'カテゴリ';

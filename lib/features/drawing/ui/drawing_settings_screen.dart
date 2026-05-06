@@ -183,7 +183,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
     return Scaffold(
       appBar: AppBarWidget(
         title: AppStrings.drawingSettingsTitle,
-        backgroundColor: AppColors.drawing,
+        backgroundColor: AppColors.theme,
         actions: [
           IconButton(
             tooltip: AppStrings.drawingSettingsResetTitle,
@@ -231,7 +231,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                       title: AppStrings.drawingSettingsLoopTitle,
                       child: SwitchListTile(
                         value: _loop,
-                        activeColor: AppColors.drawing,
+                        activeColor: AppColors.theme,
                         onChanged: (v) => setState(() => _loop = v),
                         title: Text(
                           _loop ? AppStrings.drawingLoopOnTitle : AppStrings.drawingLoopOffTitle,
@@ -246,7 +246,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                         ),
                         secondary: Icon(
                           _loop ? Icons.repeat : Icons.trending_flat,
-                          color: _loop ? AppColors.drawing : Colors.grey,
+                          color: _loop ? AppColors.theme : Colors.grey,
                         ),
                       ),
                     ),
@@ -258,7 +258,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                       title: AppStrings.drawingSettingsShuffleTitle,
                       child: SwitchListTile(
                         value: _shuffle,
-                        activeColor: AppColors.drawing,
+                        activeColor: AppColors.theme,
                         onChanged: (v) => setState(() => _shuffle = v),
                         title: Text(
                           _shuffle
@@ -275,7 +275,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                         ),
                         secondary: Icon(
                           _shuffle ? Icons.shuffle : Icons.sort,
-                          color: _shuffle ? AppColors.drawing : Colors.grey,
+                          color: _shuffle ? AppColors.theme : Colors.grey,
                         ),
                       ),
                     ),
@@ -326,8 +326,8 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.drawing,
-                              side: const BorderSide(color: AppColors.drawing),
+                              foregroundColor: AppColors.theme,
+                              side: const BorderSide(color: AppColors.theme),
                               padding:
                                   const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
@@ -346,7 +346,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor:
-                                  _canStart ? AppColors.drawing : Colors.grey,
+                                  _canStart ? AppColors.theme : Colors.grey,
                               foregroundColor: Colors.white,
                               padding:
                                   const EdgeInsets.symmetric(vertical: 14),
@@ -429,7 +429,7 @@ class _MaxWorkTimeSetting extends StatelessWidget {
         // 無制限トグル
         SwitchListTile(
           value: _isUnlimited,
-          activeColor: AppColors.drawing,
+          activeColor: AppColors.theme,
           onChanged: (v) => onChanged(
               v ? AppValues.drawingMaxWorkTimeUnlimited : 10 * 60),
           title: const Text(AppStrings.drawingSettingsMaxTimeUnlimited,
@@ -440,7 +440,7 @@ class _MaxWorkTimeSetting extends StatelessWidget {
                 TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
           secondary: Icon(Icons.all_inclusive,
-              color: _isUnlimited ? AppColors.drawing : Colors.grey),
+              color: _isUnlimited ? AppColors.theme : Colors.grey),
         ),
 
         // 時間選択（無制限OFF時のみ表示）
@@ -456,7 +456,7 @@ class _MaxWorkTimeSetting extends StatelessWidget {
                             60)
                     : null,
                 icon: const Icon(Icons.remove_circle_outline),
-                color: AppColors.drawing,
+                color: AppColors.theme,
                 iconSize: 32,
               ),
               const SizedBox(width: 12),
@@ -465,7 +465,7 @@ class _MaxWorkTimeSetting extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.drawing,
+                  color: AppColors.theme,
                 ),
               ),
               const SizedBox(width: 12),
@@ -476,7 +476,7 @@ class _MaxWorkTimeSetting extends StatelessWidget {
                             60)
                     : null,
                 icon: const Icon(Icons.add_circle_outline),
-                color: AppColors.drawing,
+                color: AppColors.theme,
                 iconSize: 32,
               ),
             ],
@@ -487,7 +487,7 @@ class _MaxWorkTimeSetting extends StatelessWidget {
             max: AppValues.drawingMaxWorkTimeMaxMin.toDouble(),
             divisions: AppValues.drawingMaxWorkTimeMaxMin -
                 AppValues.drawingMaxWorkTimeMinMin,
-            activeColor: AppColors.drawing,
+            activeColor: AppColors.theme,
             label: _displayLabel,
             onChanged: (v) =>
                 onChanged(v.round() * 60),
@@ -530,7 +530,7 @@ class _DurationSetting extends StatelessWidget {
             IconButton(
               onPressed: onDecrement,
               icon: const Icon(Icons.remove_circle_outline),
-              color: AppColors.drawing,
+              color: AppColors.theme,
               iconSize: 32,
             ),
             const SizedBox(width: 12),
@@ -539,14 +539,14 @@ class _DurationSetting extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: AppColors.drawing,
+                color: AppColors.theme,
               ),
             ),
             const SizedBox(width: 12),
             IconButton(
               onPressed: onIncrement,
               icon: const Icon(Icons.add_circle_outline),
-              color: AppColors.drawing,
+              color: AppColors.theme,
               iconSize: 32,
             ),
           ],
@@ -558,7 +558,7 @@ class _DurationSetting extends StatelessWidget {
           divisions: (AppValues.drawingDurationMaxSec -
                   AppValues.drawingDurationMinSec) ~/
               AppValues.drawingDurationStepSec,
-          activeColor: AppColors.drawing,
+          activeColor: AppColors.theme,
           label: durationSec.toDisplayDuration(),
           onChanged: onSliderChanged,
         ),
@@ -610,7 +610,7 @@ class _CategorySelector extends StatelessWidget {
             Checkbox(
               value: _checkboxValue,
               tristate: true,
-              activeColor: AppColors.drawing,
+              activeColor: AppColors.theme,
               // null（部分選択）をタップ → 全選択、それ以外 → 現在値を反転
               onChanged: (_) => onToggleAll(!allCategoriesSelected),
             ),
@@ -633,12 +633,12 @@ class _CategorySelector extends StatelessWidget {
               allModels.where((m) => m.categoryId == categoryDef.id).length;
           return CheckboxListTile(
             value: selected,
-            activeColor: AppColors.drawing,
+            activeColor: AppColors.theme,
             title: Text(categoryDef.name),
             subtitle: Text('$count 枚', style: const TextStyle(fontSize: 11)),
             secondary: Icon(
               Icons.folder_outlined,
-              color: selected ? AppColors.drawing : Colors.grey,
+              color: selected ? AppColors.theme : Colors.grey,
             ),
             onChanged: (_) => onToggleCategory(categoryDef.id),
           );

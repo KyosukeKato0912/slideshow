@@ -95,6 +95,11 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
   Timer? _remainingTimer;
   Timer? _labelTimer;
 
+  // 画像のピンチ拡大縮小用コントローラー。
+  // 画像切り替え時に reset() してズーム状態を初期化する。
+  final TransformationController _transformationController =
+      TransformationController();
+
   DrawingModel get _currentModel => _playlist[_currentIndex];
   bool get _currentIsPairTransition => _isPairTransition[_currentIndex];
 
@@ -257,12 +262,18 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
   // ── 0.5秒モデル名ラベルを表示してからスライド開始 ────────
   // [skipLabel] がtrueの場合（ペア内遷移・手動ボタン操作）はラベルをスキップ
   // 前半 300ms: 完全表示 → 後半 200ms: フェードアウト → スライド開始
+  //
+  // ラベル表示中（計 500ms）は最大作業時間タイマーを停止する。
+  // これにより、画像切り替えカウントダウンと最大作業時間カウントダウンの
+  // 起算点が一致し、ラベル表示のたびに生じていたズレを防ぐ。
   void _showLabelThenStart({bool skipLabel = false}) {
     _labelTimer?.cancel();
     if (skipLabel) {
       _startSlideshow();
       return;
     }
+    // ラベル表示開始と同時に最大作業時間タイマーを一時停止
+    _stopWorkElapsedTimer();
     setState(() {
       _isShowingLabel = true;
       _isLabelFadingOut = false;
@@ -287,12 +298,17 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
   void _startSlideshow() {
     _slideshowTimer?.cancel();
     _restartRemainingTimer();
-    // 作業タイマー：まだ起動していない場合（初回）のみ起動する。
-    // ボタン切り替え時は再起動せず、_workElapsedSec の手動加算で時間を管理する。
-    // _stopWorkElapsedTimer() が null にリセットするため、null チェックで十分。
+    // 作業タイマーを起動（または再開）する。
+    // ・初回呼び出し時は新規起動。
+    // ・_showLabelThenStart() 経由の場合はラベル表示中に停止済みなので再起動。
+    // ・ボタン切り替え（skipLabel=true）経由では停止していないので null チェックで
+    //   二重起動を防ぐ。いずれも _stopWorkElapsedTimer() が null にリセット済みの
+    //   ため、null チェック一本で全ケースを正しくハンドルできる。
     if (_workElapsedTimer == null) {
       _startWorkElapsedTimer();
     }
+    // 画像切り替え時にピンチズームをリセットして次の画像をフル表示する
+    _transformationController.value = Matrix4.identity();
     // この画像の表示開始時点の作業経過を記録（ボタン切り替え時の巻き戻し基準）
     _slideStartWorkElapsed = _workElapsedSec;
     _slideshowTimer = Timer.periodic(
@@ -462,6 +478,7 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
     _slideshowTimer?.cancel();
     _remainingTimer?.cancel();
     _labelTimer?.cancel();
+    _transformationController.dispose();
     super.dispose();
   }
 
@@ -474,7 +491,7 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
     return Scaffold(
       appBar: AppBarWidget(
         title: AppStrings.drawingMainTitle,
-        backgroundColor: AppColors.drawing,
+        backgroundColor: AppColors.theme,
       ),
       body: Column(
         children: [
@@ -543,10 +560,17 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                                   SizedBox(width: innerPad),
                                   // ── 中央：モデル画像 ────────────
                                   Expanded(
-                                    child: Image.asset(
-                                      _currentModel.path,
-                                      fit: BoxFit.contain,
-                                      height: areaH,
+                                    child: InteractiveViewer(
+                                      transformationController:
+                                          _transformationController,
+                                      minScale: 1.0,
+                                      maxScale: 5.0,
+                                      clipBehavior: Clip.hardEdge,
+                                      child: Image.asset(
+                                        _currentModel.path,
+                                        fit: BoxFit.contain,
+                                        height: areaH,
+                                      ),
                                     ),
                                   ),
                                   SizedBox(width: innerPad),
@@ -600,10 +624,10 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                       height: 8,
                       decoration: BoxDecoration(
                         color: i == _currentIndex
-                            ? AppColors.drawing
+                            ? AppColors.theme
                             : _isPairTransition[i]
-                                ? AppColors.drawingLight
-                                : AppColors.drawingBorder,
+                                ? AppColors.themeLight
+                                : AppColors.themeBorder,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -622,7 +646,7 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                     icon: const Icon(Icons.skip_previous),
                     style: IconButton.styleFrom(
                       backgroundColor:
-                          isFirst ? Colors.grey.shade300 : AppColors.drawing,
+                          isFirst ? Colors.grey.shade300 : AppColors.theme,
                       foregroundColor: Colors.white,
                       iconSize: 32,
                       padding: const EdgeInsets.all(12),
@@ -633,7 +657,7 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                     onPressed: _isPlaying ? _pause : _resume,
                     icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
                     style: IconButton.styleFrom(
-                      backgroundColor: AppColors.drawing,
+                      backgroundColor: AppColors.theme,
                       foregroundColor: Colors.white,
                       iconSize: 36,
                       padding: const EdgeInsets.all(14),
@@ -645,7 +669,7 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                     icon: const Icon(Icons.skip_next),
                     style: IconButton.styleFrom(
                       backgroundColor:
-                          isLast ? Colors.grey.shade300 : AppColors.drawing,
+                          isLast ? Colors.grey.shade300 : AppColors.theme,
                       foregroundColor: Colors.white,
                       iconSize: 32,
                       padding: const EdgeInsets.all(12),
@@ -905,7 +929,7 @@ class _CircularCountdownTimerState extends State<_CircularCountdownTimer>
     if (widget.isPaused) return Colors.grey.shade400;
     if (widget.remaining <= 2) return Colors.red.shade400;
     if (widget.remaining <= _alertThreshold) return Colors.orange.shade400;
-    return AppColors.drawing;
+    return AppColors.theme;
   }
 
   // 残り秒数に応じた数字カラー
@@ -913,7 +937,7 @@ class _CircularCountdownTimerState extends State<_CircularCountdownTimer>
     if (widget.isPaused) return Colors.grey.shade500;
     if (widget.remaining <= 2) return Colors.red.shade400;
     if (widget.remaining <= _alertThreshold) return Colors.orange.shade400;
-    return AppColors.drawing;
+    return AppColors.theme;
   }
 
   // フラッシュ背景カラー（アラート時のみ有彩色）
@@ -944,10 +968,10 @@ class _CircularCountdownTimerState extends State<_CircularCountdownTimer>
               // ── ベース背景 ──────────────────────────────
               Container(
                 decoration: BoxDecoration(
-                  color: AppColors.drawingLight,
+                  color: AppColors.themeLight,
                   shape: BoxShape.circle,
                   border:
-                      Border.all(color: AppColors.drawingBorder, width: 1),
+                      Border.all(color: AppColors.themeBorder, width: 1),
                 ),
               ),
               // ── フラッシュ背景（アラート時のみ表示） ────
@@ -965,7 +989,7 @@ class _CircularCountdownTimerState extends State<_CircularCountdownTimer>
               CircularProgressIndicator(
                 value: progress,
                 strokeWidth: strokeWidth,
-                backgroundColor: AppColors.drawingBorder,
+                backgroundColor: AppColors.themeBorder,
                 valueColor: AlwaysStoppedAnimation<Color>(_ringColor()),
               ),
               // ── 数字・ラベル（アラート時はパルス） ───────
@@ -1036,7 +1060,7 @@ class _StartCountdownDisplay extends StatelessWidget {
             style: const TextStyle(
               fontSize: 120,
               fontWeight: FontWeight.bold,
-              color: AppColors.drawing,
+              color: AppColors.theme,
             ),
           ),
         ),
@@ -1068,7 +1092,7 @@ class _ModelNameLabelDisplay extends StatelessWidget {
         style: const TextStyle(
           fontSize: 48,
           fontWeight: FontWeight.bold,
-          color: AppColors.drawing,
+          color: AppColors.theme,
         ),
         textAlign: TextAlign.center,
       ),
@@ -1079,7 +1103,7 @@ class _ModelNameLabelDisplay extends StatelessWidget {
 // ══════════════════════════════════════════════════════════
 // 終了画面
 // ══════════════════════════════════════════════════════════
-class _EndScreen extends StatelessWidget {
+class _EndScreen extends StatefulWidget {
   final int totalCount;
   final bool isTimeUp;
   final VoidCallback onRestart;
@@ -1091,45 +1115,122 @@ class _EndScreen extends StatelessWidget {
   });
 
   @override
+  State<_EndScreen> createState() => _EndScreenState();
+}
+
+class _EndScreenState extends State<_EndScreen>
+    with SingleTickerProviderStateMixin {
+  late final String _message;
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fadeAnim;
+
+  // ── ランダムメッセージ選択（重み付き・直前と被らない） ──
+  // 直前に出たメッセージを避けるために static で保持する。
+  // アプリ起動中に複数回 _EndScreen が生成される場合の重複回避。
+  static int? _lastIndex;
+
+  static String _pickMessage() {
+    final defs = DrawingConfig.endMessages;
+    final messages = AppStrings.drawingEndMessages;
+
+    // 直前と被らない候補でweightedRandomを行う
+    List<DrawingEndMessageDef> candidates = defs
+        .where((d) => d.index != _lastIndex)
+        .toList();
+
+    // 万が一候補が空になった場合（定義が1件のみ等）は全件対象
+    if (candidates.isEmpty) candidates = List.of(defs);
+
+    // 累積重みテーブルを作成
+    final totalWeight = candidates.fold(0, (sum, d) => sum + d.weightValue);
+    final rand = Random().nextInt(totalWeight);
+    int cumulative = 0;
+    for (final d in candidates) {
+      cumulative += d.weightValue;
+      if (rand < cumulative) {
+        _lastIndex = d.index;
+        return messages[d.index];
+      }
+    }
+    // フォールバック（通常は到達しない）
+    _lastIndex = candidates.last.index;
+    return messages[candidates.last.index];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _message = _pickMessage();
+
+    // 0.2秒で opacity 0.2 → 1.0 のフェードイン
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _fadeAnim = Tween<double>(begin: 0.2, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeIn),
+    );
+    // 次フレームで即開始（FINISH!! 表示後に自然にフェードイン）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _fadeCtrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // FINISH!! は最初から表示
         Text(
           AppStrings.drawingEndLabel,
           style: const TextStyle(
             fontSize: 80,
             fontWeight: FontWeight.bold,
-            color: AppColors.drawing,
+            color: AppColors.theme,
             letterSpacing: 8,
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          AppStrings.drawingEndSubLabel,
-          style: TextStyle(
-            fontSize: 18,
-            color: AppColors.drawing.withAlpha(180),
-            fontWeight: FontWeight.w500,
+        // サブメッセージはフェードイン
+        AnimatedBuilder(
+          animation: _fadeAnim,
+          builder: (context, child) => Opacity(
+            opacity: _fadeAnim.value,
+            child: child,
+          ),
+          child: Text(
+            _message,
+            style: TextStyle(
+              fontSize: 18,
+              color: AppColors.theme.withAlpha(180),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         const SizedBox(height: 12),
         Text(
-          isTimeUp
+          widget.isTimeUp
               ? AppStrings.drawingEndTimeUpMessage
-              : '${AppStrings.drawingEndCompletePrefix}$totalCount${AppStrings.drawingEndCompleteSuffix}',
+              : '${AppStrings.drawingEndCompletePrefix}${widget.totalCount}${AppStrings.drawingEndCompleteSuffix}',
           style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 48),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.drawing,
+            backgroundColor: AppColors.theme,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          onPressed: onRestart,
+          onPressed: widget.onRestart,
           icon: const Icon(Icons.replay),
           label: Text(
             AppStrings.drawingRestartButton,
@@ -1162,17 +1263,17 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.drawingLight,
+        color: AppColors.themeLight,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.drawingBorder),
+        border: Border.all(color: AppColors.themeBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: iconSize, color: AppColors.drawing),
+          Icon(icon, size: iconSize, color: AppColors.theme),
           const SizedBox(width: 2),
           Text(label,
-              style: TextStyle(fontSize: fontSize, color: AppColors.drawing)),
+              style: TextStyle(fontSize: fontSize, color: AppColors.theme)),
         ],
       ),
     );

@@ -4,6 +4,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/router/app_router.dart';
+import '../../../shared/components/app_bar_widget.dart';
 
 // ══════════════════════════════════════════════════════════
 // ホーム画面
@@ -17,10 +18,10 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text(AppStrings.homeTitle),
-        centerTitle: true,
+      appBar: AppBarWidget(
+        title: AppStrings.homeTitle,
+        backgroundColor: AppColors.theme,
+        showBackButton: false,
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -38,7 +39,7 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   _FeatureNavButton(
                     label: AppStrings.featureDrawing,
-                    color: AppColors.drawing,
+                    color: AppColors.theme,
                     enabled: AppConfig.featureXSecDrawing,
                     onTap: () =>
                         Navigator.push(context, AppRouter.drawing()),

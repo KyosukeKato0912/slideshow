@@ -13,11 +13,15 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
   /// [actions] を渡すと AppBar 右端にアイコンボタンを追加できる
   final List<Widget>? actions;
 
+  /// false にすると戻るボタンを非表示にする（ホーム画面など最上位画面で使用）
+  final bool showBackButton;
+
   const AppBarWidget({
     super.key,
     required this.title,
     required this.backgroundColor,
     this.actions,
+    this.showBackButton = true,
   });
 
   @override
@@ -30,10 +34,13 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: Colors.white,
       title: Text(title),
       centerTitle: true,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.pop(context),
-      ),
+      automaticallyImplyLeading: false,
+      leading: showBackButton
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.pop(context),
+            )
+          : null,
       actions: actions,
     );
   }
