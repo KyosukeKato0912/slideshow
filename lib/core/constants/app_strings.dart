@@ -119,4 +119,12 @@ abstract class AppStrings {
   // ── 共通ダイアログ ──────────────────────────────────────
   static const String dialogCancel = 'キャンセル';
   static const String dialogReset = 'リセット';
+
+  // ── Webサンプル版：フィードバックリンク ─────────────────
+  /// ホーム画面に表示するリンクラベル
+  static const String feedbackLinkLabelHome = 'ご意見・ご感想はこちら';
+  /// X秒ドローイング終了画面に表示するリンク上の誘導テキスト
+  static const String feedbackLinkPromptDrawingEnd = 'よろしければ使ってみた感想を教えてください';
+  /// X秒ドローイング終了画面に表示するリンクラベル
+  static const String feedbackLinkLabelDrawingEnd = 'アンケートに答える';
 }

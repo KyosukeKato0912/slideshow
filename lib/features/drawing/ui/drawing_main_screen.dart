@@ -6,6 +6,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/extensions/int_ext.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../../../shared/components/feedback_link_widget.dart';
 import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 import '../domain/drawing_settings.dart';
@@ -1236,6 +1237,11 @@ class _EndScreenState extends State<_EndScreen>
             AppStrings.drawingRestartButton,
             style: const TextStyle(fontSize: 16),
           ),
+        ),
+        const SizedBox(height: 24),
+        FeedbackLinkWidget(
+          prompt: AppStrings.feedbackLinkPromptDrawingEnd,
+          label: AppStrings.feedbackLinkLabelDrawingEnd,
         ),
       ],
     );

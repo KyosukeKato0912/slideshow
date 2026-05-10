@@ -5,6 +5,7 @@ import '../../../core/constants/app_values.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/router/app_router.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../../../shared/components/feedback_link_widget.dart';
 
 // ══════════════════════════════════════════════════════════
 // ホーム画面
@@ -71,6 +72,10 @@ class HomeScreen extends StatelessWidget {
                     color: AppColors.proArtistLesson,
                     enabled: AppConfig.featureProLesson,
                     onTap: () {}, // TODO: AppRouter.proLesson() に差し替える
+                  ),
+                  const SizedBox(height: 32),
+                  FeedbackLinkWidget(
+                    label: AppStrings.feedbackLinkLabelHome,
                   ),
                 ],
               ),
