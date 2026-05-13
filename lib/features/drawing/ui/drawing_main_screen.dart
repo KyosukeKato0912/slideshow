@@ -519,6 +519,8 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                             builder: (context, constraints) {
                               final double areaW = constraints.maxWidth;
                               final double areaH = constraints.maxHeight;
+                              // 600px未満をスマホ縦画面として縦レイアウトに切り替え
+                              final bool isNarrow = areaW < 600;
 
                               // パネル幅：全体幅の10%、80〜160px
                               final double panelW =
@@ -535,6 +537,65 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                               final double innerPad =
                                   (areaW * 0.015).clamp(6.0, 16.0);
 
+                              if (isNarrow) {
+                                // ══ 縦レイアウト（スマホ縦画面）══
+                                // 上段：モデル情報パネル（左）＋タイマー（右）横並び
+                                // 下段：画像をフル幅表示
+                                final double narrowPanelW =
+                                    (areaW * 0.45).clamp(120.0, 260.0);
+                                final double narrowTimerSize =
+                                    (areaW * 0.22).clamp(60.0, 100.0);
+                                return Column(
+                                  children: [
+                                    // 上段
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 6),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: narrowPanelW,
+                                            child: _ModelInfoPanel(
+                                              model: _currentModel,
+                                              loop: _loop,
+                                              shuffle: widget.settings.shuffle,
+                                              maxWorkTimeSec: _maxWorkTimeSec,
+                                              workElapsedSec: _workElapsedSec,
+                                              panelW: narrowPanelW,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          _CircularCountdownTimer(
+                                            remaining: _remaining,
+                                            durationSec: _durationSec,
+                                            isPaused: !_isPlaying,
+                                            size: narrowTimerSize,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // 下段：画像フル幅
+                                    Expanded(
+                                      child: InteractiveViewer(
+                                        transformationController:
+                                            _transformationController,
+                                        minScale: 1.0,
+                                        maxScale: 5.0,
+                                        clipBehavior: Clip.hardEdge,
+                                        child: Image.asset(
+                                          _currentModel.path,
+                                          fit: BoxFit.contain,
+                                          width: areaW,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }
+
+                              // ══ 横レイアウト（PC・タブレット）══
                               return Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
