@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/config/drawing_config.dart';
+import '../../core/constants/app_strings.dart';
+import '../../core/config/app_config.dart';
 
 // ══════════════════════════════════════════════════════════
 // フィードバックリンクウィジェット（Webサンプル版専用）
 //
-// DrawingConfig.showFeedbackLink が false の場合は SizedBox.shrink() を返す。
+// AppConfig.showFeedbackLink が false の場合は SizedBox.shrink() を返す。
 // 正式リリース時はフラグを false にするだけで全画面から非表示になる。
 // ══════════════════════════════════════════════════════════
 class FeedbackLinkWidget extends StatelessWidget {
@@ -23,7 +24,7 @@ class FeedbackLinkWidget extends StatelessWidget {
   });
 
   Future<void> _openUrl() async {
-    final uri = Uri.parse(DrawingConfig.feedbackUrl);
+    final uri = Uri.parse(AppStrings.feedbackUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -31,7 +32,7 @@ class FeedbackLinkWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!DrawingConfig.showFeedbackLink) return const SizedBox.shrink();
+    if (!AppConfig.showFeedbackLink) return const SizedBox.shrink();
 
     return Column(
       mainAxisSize: MainAxisSize.min,

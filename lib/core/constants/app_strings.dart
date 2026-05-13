@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════
 abstract class AppStrings {
   // ── アプリ共通 ──────────────────────────────────────────
-  static const String appTitle = 'イラスト練習支援アプリ';
+  static const String appTitle = 'イラスト練習支援アプリ(仮)';
 
   // ── ホーム画面 ──────────────────────────────────────────
   static const String homeTitle = 'メイン';
@@ -59,26 +59,25 @@ abstract class AppStrings {
   static const String drawingSettingsResetTitle = '設定を初期値に戻す';
   static const String drawingSettingsResetMessage =
       'すべての設定をデフォルト値に戻します。よろしいですか？';
-  static const String drawingSettingsCategoryWarning =
-      '⚠ カテゴリを1つ以上選択してください';
+  static const String drawingSettingsCategoryWarning = '⚠ カテゴリを1つ以上選択してください';
   static const String drawingSettingsSelectAll = 'すべて選択';
 
   // ── X秒ドローイング 設定説明テキスト ────────────────────
-  static const String drawingLoopOnTitle    = 'ループあり';
-  static const String drawingLoopOffTitle   = 'ループなし';
-  static const String drawingLoopOnDesc     = '最後の画像の後、最初に戻って繰り返します';
-  static const String drawingLoopOffDesc    = '最後の画像で停止します';
-  static const String drawingShuffleOnDesc  = '画像をランダムな順番で再生します';
+  static const String drawingLoopOnTitle = 'ループあり';
+  static const String drawingLoopOffTitle = 'ループなし';
+  static const String drawingLoopOnDesc = '最後の画像の後、最初に戻って繰り返します';
+  static const String drawingLoopOffDesc = '最後の画像で停止します';
+  static const String drawingShuffleOnDesc = '画像をランダムな順番で再生します';
   static const String drawingShuffleOffDesc = '画像を登録された順番で再生します';
   static const String drawingMaxTimeUnlimitedDesc = '時間制限なしで再生します';
-  static const String drawingMaxTimeLimitedDesc   = '指定時間が経過すると終了します';
+  static const String drawingMaxTimeLimitedDesc = '指定時間が経過すると終了します';
 
   // ── X秒ドローイング 設定サマリーチップ ──────────────────
-  static const String drawingSummaryDurationPrefix = '切替';  // 切替: X秒
-  static const String drawingSummaryMaxTimePrefix  = '上限';  // 上限: X分 / 無制限
+  static const String drawingSummaryDurationPrefix = '切替'; // 切替: X秒
+  static const String drawingSummaryMaxTimePrefix = '上限'; // 上限: X分 / 無制限
 
-  static const String drawingPrevLabel           = '前の画像';
-  static const String drawingNextLabel           = '次の画像';
+  static const String drawingPrevLabel = '前の画像';
+  static const String drawingNextLabel = '次の画像';
   static const String drawingToggleHeightButton = '頭身切り替え';
   static const String drawingNoPairLabel = 'ペアなし';
   static const String drawingAuthorPrefix = '作者：';
@@ -86,18 +85,21 @@ abstract class AppStrings {
   // ── X秒ドローイング 終了画面 ─────────────────────────────
   /// 最大作業時間超過による終了メッセージ
   static const String drawingEndTimeUpMessage = '最大作業時間に達しました';
+
   /// 全枚数完了メッセージのプレフィックス（後ろに枚数と suffix が続く）
   static const String drawingEndCompletePrefix = '全 ';
+
   /// 全枚数完了メッセージのサフィックス
   static const String drawingEndCompleteSuffix = ' 枚 完了';
+
   /// 終了時にランダム表示するサブメッセージ一覧。
   /// インデックスは DrawingConfig.endMessages の index フィールドと対応する。
   static const List<String> drawingEndMessages = [
-    '今日も一歩前進',   // index: 0
-    'お疲れ様でした',   // index: 1
+    '今日も一歩前進', // index: 0
+    'お疲れ様でした', // index: 1
     'よく頑張りました', // index: 2
-    'いいペースです',   // index: 3
-    '明日も少しずつ',   // index: 4
+    'いいペースです', // index: 3
+    '明日も少しずつ', // index: 4
   ];
 
   // ── モデル一覧 ──────────────────────────────────────────
@@ -123,8 +125,14 @@ abstract class AppStrings {
   // ── Webサンプル版：フィードバックリンク ─────────────────
   /// ホーム画面に表示するリンクラベル
   static const String feedbackLinkLabelHome = 'ご意見・ご感想はこちら';
+
   /// X秒ドローイング終了画面に表示するリンク上の誘導テキスト
   static const String feedbackLinkPromptDrawingEnd = 'よろしければ使ってみた感想を教えてください';
+
   /// X秒ドローイング終了画面に表示するリンクラベル
   static const String feedbackLinkLabelDrawingEnd = 'アンケートに答える';
+
+  /// フィードバックフォームのURL
+  static const String feedbackUrl =
+      'https://docs.google.com/forms/d/1B1-qUU3T6P6Q70VuZJfYdj8WtT_4ZucfD95EMzBmA6M/edit';
 }

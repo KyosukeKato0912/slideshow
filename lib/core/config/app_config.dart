@@ -13,4 +13,9 @@ abstract class AppConfig {
   static const bool featureGrowthRecord   = false; // 成長記録
   static const bool featureHabitSupport   = false; // 習慣化サポート
   static const bool featureProLesson      = false; // プロ絵師解説
+
+  // ── Webサンプル版フラグ ─────────────────────────────────
+  // true  → フィードバックリンクをホーム・X秒ドローイング終了画面に表示
+  // false → 非表示（正式リリース時は false に戻すこと）
+  static const bool showFeedbackLink = true;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
+import '../../../core/constants/app_strings.dart';
 
 // ══════════════════════════════════════════════════════════
 // アプリルートウィジェット
@@ -18,7 +19,7 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
-      title: 'イラスト練習支援アプリ',
+      title: AppStrings.appTitle,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
