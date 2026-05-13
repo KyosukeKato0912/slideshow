@@ -258,17 +258,22 @@ class _ModelThumbnailGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const double minPanelWidth = 320.0;
-        final int crossAxisCount =
-            (constraints.maxWidth / minPanelWidth).floor().clamp(2, 8);
+        // スマホ（幅600未満）は2列固定、タブレット以上は幅に応じて増やす
+        final int crossAxisCount = constraints.maxWidth < 600
+            ? 2
+            : (constraints.maxWidth / 280.0).floor().clamp(2, 8);
+
+        // 情報エリア（カテゴリ・モデル名・作者名）の高さを考慮してアスペクト比を調整
+        // 画像部分が十分に見えるよう縦長に設定
+        const double childAspectRatio = 0.75;
 
         return GridView.builder(
           padding: EdgeInsets.fromLTRB(outerPad, 12, outerPad, 12),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.0,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: childAspectRatio,
           ),
           itemCount: models.length,
           itemBuilder: (context, index) {
@@ -356,72 +361,82 @@ class _ModelThumbnailCard extends StatelessWidget {
                 ),
               ),
             ),
-            // ── 情報エリア ──
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              color: Colors.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // カテゴリバッジ
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: AppColors.themeLight,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      model.categoryName,
-                      style: TextStyle(
-                          fontSize: 10, color: AppColors.themeDark),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  // モデル名
-                  Row(
-                    children: [
-                      const Icon(Icons.person_outline,
-                          size: 13, color: AppColors.theme),
-                      const SizedBox(width: 3),
-                      Expanded(
+            // ── 情報エリア ──（高さ固定でサムネイル領域を確保）
+            SizedBox(
+              height: 68,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // カテゴリバッジ
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: double.infinity),
+                      child: Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.themeLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                         child: Text(
-                          model.modelName,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          model.categoryName,
+                          style: TextStyle(
+                              fontSize: 10, color: AppColors.themeDark),
                           overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
-                      const Icon(Icons.open_in_full,
-                          size: 11, color: Colors.grey),
-                    ],
-                  ),
-                  // 作者名
-                  if (model.authorName.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Row(
-                        children: [
-                          Icon(Icons.brush_outlined,
-                              size: 11, color: Colors.grey.shade500),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            child: Text(
-                              '${AppStrings.drawingAuthorPrefix}${model.authorName}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                ],
+                    const SizedBox(height: 2),
+                    // モデル名
+                    Row(
+                      children: [
+                        const Icon(Icons.person_outline,
+                            size: 13, color: AppColors.theme),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            model.modelName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        const Icon(Icons.open_in_full,
+                            size: 11, color: Colors.grey),
+                      ],
+                    ),
+                    // 作者名
+                    if (model.authorName.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Row(
+                          children: [
+                            Icon(Icons.brush_outlined,
+                                size: 11, color: Colors.grey.shade500),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                '${AppStrings.drawingAuthorPrefix}${model.authorName}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],

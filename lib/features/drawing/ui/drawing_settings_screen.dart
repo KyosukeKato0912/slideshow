@@ -236,6 +236,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                         title: Text(
                           _loop ? AppStrings.drawingLoopOnTitle : AppStrings.drawingLoopOffTitle,
                           style: const TextStyle(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
                           _loop
@@ -243,11 +244,13 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                               : AppStrings.drawingLoopOffDesc,
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey.shade500),
+                          overflow: TextOverflow.visible,
                         ),
                         secondary: Icon(
                           _loop ? Icons.repeat : Icons.trending_flat,
                           color: _loop ? AppColors.theme : Colors.grey,
                         ),
+                        isThreeLine: true,
                       ),
                     ),
 
@@ -265,6 +268,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                               ? AppStrings.drawingRandomOrder
                               : AppStrings.drawingRegisteredOrder,
                           style: const TextStyle(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
                           _shuffle
@@ -272,11 +276,13 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
                               : AppStrings.drawingShuffleOffDesc,
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey.shade500),
+                          overflow: TextOverflow.visible,
                         ),
                         secondary: Icon(
                           _shuffle ? Icons.shuffle : Icons.sort,
                           color: _shuffle ? AppColors.theme : Colors.grey,
                         ),
+                        isThreeLine: true,
                       ),
                     ),
 
@@ -433,14 +439,17 @@ class _MaxWorkTimeSetting extends StatelessWidget {
           onChanged: (v) => onChanged(
               v ? AppValues.drawingMaxWorkTimeUnlimited : 10 * 60),
           title: const Text(AppStrings.drawingSettingsMaxTimeUnlimited,
-              style: TextStyle(fontWeight: FontWeight.w500)),
+              style: TextStyle(fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis),
           subtitle: Text(
             _isUnlimited ? AppStrings.drawingMaxTimeUnlimitedDesc : AppStrings.drawingMaxTimeLimitedDesc,
             style:
                 TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            overflow: TextOverflow.visible,
           ),
           secondary: Icon(Icons.all_inclusive,
               color: _isUnlimited ? AppColors.theme : Colors.grey),
+          isThreeLine: true,
         ),
 
         // 時間選択（無制限OFF時のみ表示）
@@ -619,10 +628,14 @@ class _CategorySelector extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const Spacer(),
-            Text(
-              '${selectedCategories.length} / ${categories.length} カテゴリ'
-              '  （$selectedModelsCount 枚）',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            Flexible(
+              child: Text(
+                '${selectedCategories.length} / ${categories.length} カテゴリ'
+                '  （$selectedModelsCount 枚）',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+              ),
             ),
           ],
         ),

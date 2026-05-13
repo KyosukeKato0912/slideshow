@@ -6,10 +6,10 @@
 abstract class AppValues {
   // ── レイアウト ──────────────────────────────────────────
   /// 外側パディングの割合（画面幅に対する比率）
-  static const double outerPadRatio = 0.2;
+  static const double outerPadRatio = 0.05;
 
   /// 外側パディングの最小値（px）
-  static const double outerPadMin = 4.0;
+  static const double outerPadMin = 8.0;
 
   /// 外側パディングの最大値（px）
   static const double outerPadMax = 240.0;
