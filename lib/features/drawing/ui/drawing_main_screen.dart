@@ -524,10 +524,10 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
 
                               // パネル幅：全体幅の10%、80〜160px
                               final double panelW =
-                                  (areaW * 0.13).clamp(95.0, 200.0);
+                                  (areaW * 0.16).clamp(110.0, 240.0);
                               // タイマーサイズ：パネル幅の75%
                               final double timerSize =
-                                  (panelW * 0.75).clamp(60.0, 120.0);
+                                  (panelW * 0.80).clamp(70.0, 150.0);
                               // 外余白
                               final double outerPad =
                                   (areaW * AppValues.outerPadRatio).clamp(
@@ -541,10 +541,12 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                                 // ══ 縦レイアウト（スマホ縦画面）══
                                 // 上段：モデル情報パネル（左）＋タイマー（右）横並び
                                 // 下段：画像をフル幅表示
-                                final double narrowPanelW =
-                                    (areaW * 0.45).clamp(120.0, 260.0);
                                 final double narrowTimerSize =
-                                    (areaW * 0.22).clamp(60.0, 100.0);
+                                    (areaW * 0.18).clamp(50.0, 85.0);
+                                // タイマー幅＋左右パディングを除いた残り幅をパネルに割り当てる
+                                final double narrowPanelW =
+                                    (areaW - narrowTimerSize - 90 - 12 * 2 - 8)
+                                        .clamp(100.0, areaW * 0.75);
                                 return Column(
                                   children: [
                                     // 上段
@@ -555,16 +557,13 @@ class _DrawingMainScreenState extends State<DrawingMainScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.center,
                                         children: [
-                                          SizedBox(
-                                            width: narrowPanelW,
-                                            child: _ModelInfoPanel(
-                                              model: _currentModel,
-                                              loop: _loop,
-                                              shuffle: widget.settings.shuffle,
-                                              maxWorkTimeSec: _maxWorkTimeSec,
-                                              workElapsedSec: _workElapsedSec,
-                                              panelW: narrowPanelW,
-                                            ),
+                                          _ModelInfoPanel(
+                                            model: _currentModel,
+                                            loop: _loop,
+                                            shuffle: widget.settings.shuffle,
+                                            maxWorkTimeSec: _maxWorkTimeSec,
+                                            workElapsedSec: _workElapsedSec,
+                                            panelW: narrowPanelW,
                                           ),
                                           const Spacer(),
                                           _CircularCountdownTimer(
@@ -754,8 +753,10 @@ class _ModelInfoPanel extends StatelessWidget {
   final DrawingModel model;
   final bool loop;
   final bool shuffle;
+
   /// 最大作業時間（秒）。0 = 無制限。
   final int maxWorkTimeSec;
+
   /// 現在の作業経過秒数（スライドショー稼働中のみ加算）。
   final int workElapsedSec;
   final double panelW;
@@ -781,11 +782,11 @@ class _ModelInfoPanel extends StatelessWidget {
     final double maxTextW = panelW - 8;
 
     // ノート風デザイン定数
-    const Color noteBg       = Color(0xFFFFFDE7); // クリーム（黄みがかった白）
+    const Color noteBg = Color(0xFFFFFDE7); // クリーム（黄みがかった白）
     const Color noteRuleLine = Color(0xFFBBDEFB); // 薄青の横罫線
-    const Color noteMargin   = Color(0xFFEF9A9A); // 赤のマージン縦線
+    const Color noteMargin = Color(0xFFEF9A9A); // 赤のマージン縦線
     const double marginLineX = 12.0;
-    const double ruleHeight  = 0.6;
+    const double ruleHeight = 0.6;
     const double ruleSpacing = 2.5;
 
     return Container(
@@ -810,90 +811,129 @@ class _ModelInfoPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-            // カテゴリ
-            SizedBox(
-              width: maxTextW,
-              child: Text(
-                model.categoryName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: catFontSize,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            SizedBox(height: ruleSpacing),
-            Container(height: ruleHeight, color: noteRuleLine),
-            SizedBox(height: spacing),
-            // モデル名
-            SizedBox(
-              width: maxTextW,
-              child: Text(
-                model.modelName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: nameFontSize,
-                  color: Colors.black87,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            SizedBox(height: ruleSpacing),
-            Container(height: ruleHeight, color: noteRuleLine),
-            // 作者
-            if (model.authorName.isNotEmpty) ...[
-              SizedBox(height: spacing),
-              SizedBox(
-                width: maxTextW,
-                child: Text(
-                  '${AppStrings.drawingAuthorPrefix}${model.authorName}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: authFontSize,
-                    color: Colors.grey.shade600,
+                // カテゴリ
+                SizedBox(
+                  width: maxTextW,
+                  child: Text(
+                    model.categoryName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: catFontSize,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(height: ruleSpacing),
-              Container(height: ruleHeight, color: noteRuleLine),
-            ],
-            // ループ・シャッフル・最大作業時間バッジ
-            if (loop || shuffle || maxWorkTimeSec > 0) ...[
-              SizedBox(height: spacing * 2),
-              Wrap(
-                spacing: badgeSpacing,
-                runSpacing: badgeSpacing,
-                children: [
-                  if (loop)
-                    _StatusBadge(
-                      icon: Icons.repeat,
-                      label: AppStrings.drawingLoopBadge,
-                      fontSize: badgeFontSize,
-                      iconSize: badgeIconSize,
+                SizedBox(height: ruleSpacing),
+                Container(height: ruleHeight, color: noteRuleLine),
+                SizedBox(height: spacing),
+                // モデル名
+                SizedBox(
+                  width: maxTextW,
+                  child: Text(
+                    model.modelName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: nameFontSize,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.bold,
                     ),
-                  if (shuffle)
-                    _StatusBadge(
-                      icon: Icons.shuffle,
-                      label: AppStrings.drawingShuffleBadge,
-                      fontSize: badgeFontSize,
-                      iconSize: badgeIconSize,
+                  ),
+                ),
+                SizedBox(height: ruleSpacing),
+                Container(height: ruleHeight, color: noteRuleLine),
+                // 作者
+                if (model.authorName.isNotEmpty) ...[
+                  SizedBox(height: spacing),
+                  SizedBox(
+                    width: maxTextW,
+                    child: Text(
+                      '${AppStrings.drawingAuthorPrefix}${model.authorName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: authFontSize,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
-                  if (maxWorkTimeSec > 0)
-                    _StatusBadge(
-                      icon: Icons.hourglass_bottom,
-                      label: (maxWorkTimeSec - workElapsedSec)
-                          .clamp(0, maxWorkTimeSec)
-                          .toDisplayDuration(),
-                      fontSize: badgeFontSize,
-                      iconSize: badgeIconSize,
-                    ),
+                  ),
+                  SizedBox(height: ruleSpacing),
+                  Container(height: ruleHeight, color: noteRuleLine),
                 ],
-              ),
-            ],
+                // ループ・シャッフル・最大作業時間バッジ
+                if (loop || shuffle || maxWorkTimeSec > 0) ...[
+                  SizedBox(height: spacing * 2),
+                  // 3つすべてONの場合は2段構成：上段に最大作業時間、下段にループ＋シャッフル
+                  if (maxWorkTimeSec > 0 && (loop || shuffle)) ...[
+                    Wrap(
+                      spacing: badgeSpacing,
+                      runSpacing: badgeSpacing,
+                      children: [
+                        _StatusBadge(
+                          icon: Icons.hourglass_bottom,
+                          label: (maxWorkTimeSec - workElapsedSec)
+                              .clamp(0, maxWorkTimeSec)
+                              .toDisplayDuration(),
+                          fontSize: badgeFontSize,
+                          iconSize: badgeIconSize,
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: badgeSpacing),
+                    Wrap(
+                      spacing: badgeSpacing,
+                      runSpacing: badgeSpacing,
+                      children: [
+                        if (loop)
+                          _StatusBadge(
+                            icon: Icons.repeat,
+                            label: AppStrings.drawingLoopBadge,
+                            fontSize: badgeFontSize,
+                            iconSize: badgeIconSize,
+                          ),
+                        if (shuffle)
+                          _StatusBadge(
+                            icon: Icons.shuffle,
+                            label: AppStrings.drawingShuffleBadge,
+                            fontSize: badgeFontSize,
+                            iconSize: badgeIconSize,
+                          ),
+                      ],
+                    ),
+                  ] else ...[
+                    Wrap(
+                      spacing: badgeSpacing,
+                      runSpacing: badgeSpacing,
+                      children: [
+                        if (loop)
+                          _StatusBadge(
+                            icon: Icons.repeat,
+                            label: AppStrings.drawingLoopBadge,
+                            fontSize: badgeFontSize,
+                            iconSize: badgeIconSize,
+                          ),
+                        if (shuffle)
+                          _StatusBadge(
+                            icon: Icons.shuffle,
+                            label: AppStrings.drawingShuffleBadge,
+                            fontSize: badgeFontSize,
+                            iconSize: badgeIconSize,
+                          ),
+                        if (maxWorkTimeSec > 0)
+                          _StatusBadge(
+                            icon: Icons.hourglass_bottom,
+                            label: (maxWorkTimeSec - workElapsedSec)
+                                .clamp(0, maxWorkTimeSec)
+                                .toDisplayDuration(),
+                            fontSize: badgeFontSize,
+                            iconSize: badgeIconSize,
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -931,8 +971,8 @@ class _CircularCountdownTimer extends StatefulWidget {
 class _CircularCountdownTimerState extends State<_CircularCountdownTimer>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseCtrl;
-  late final Animation<double> _scaleAnim;  // 数字のスケール 1.0→1.35→1.0
-  late final Animation<double> _flashAnim;  // 背景フラッシュ opacity 0.0→0.4→0.0
+  late final Animation<double> _scaleAnim; // 数字のスケール 1.0→1.35→1.0
+  late final Animation<double> _flashAnim; // 背景フラッシュ opacity 0.0→0.4→0.0
 
   // アニメーションをトリガーする閾値（秒）
   static const int _alertThreshold = 5;
@@ -1032,8 +1072,7 @@ class _CircularCountdownTimerState extends State<_CircularCountdownTimer>
                 decoration: BoxDecoration(
                   color: AppColors.themeLight,
                   shape: BoxShape.circle,
-                  border:
-                      Border.all(color: AppColors.themeBorder, width: 1),
+                  border: Border.all(color: AppColors.themeBorder, width: 1),
                 ),
               ),
               // ── フラッシュ背景（アラート時のみ表示） ────
@@ -1196,9 +1235,8 @@ class _EndScreenState extends State<_EndScreen>
     final messages = AppStrings.drawingEndMessages;
 
     // 直前と被らない候補でweightedRandomを行う
-    List<DrawingEndMessageDef> candidates = defs
-        .where((d) => d.index != _lastIndex)
-        .toList();
+    List<DrawingEndMessageDef> candidates =
+        defs.where((d) => d.index != _lastIndex).toList();
 
     // 万が一候補が空になった場合（定義が1件のみ等）は全件対象
     if (candidates.isEmpty) candidates = List.of(defs);

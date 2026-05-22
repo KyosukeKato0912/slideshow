@@ -628,14 +628,21 @@ class _CategorySelector extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const Spacer(),
-            Flexible(
-              child: Text(
-                '${selectedCategories.length} / ${categories.length} カテゴリ'
-                '  （$selectedModelsCount 枚）',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${selectedCategories.length} / ${categories.length} カテゴリ',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  textAlign: TextAlign.right,
+                ),
+                Text(
+                  '（$selectedModelsCount 枚）',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  textAlign: TextAlign.right,
+                ),
+              ],
             ),
           ],
         ),
