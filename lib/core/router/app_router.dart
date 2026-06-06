@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../features/drawing/domain/drawing_settings.dart';
 import '../../features/drawing/ui/drawing_initial_screen.dart';
 import '../../features/drawing/ui/drawing_main_screen.dart';
+import '../../features/habit/ui/habit_main_screen.dart';
 import '../../features/home/ui/home_screen.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -33,9 +34,13 @@ abstract class AppRouter {
         builder: (_) => DrawingMainScreen(settings: settings),
       );
 
+  /// 習慣化サポート メイン画面へのルート
+  static Route<void> habit() => MaterialPageRoute(
+        builder: (_) => const HabitMainScreen(),
+      );
+
   // ── 将来実装予定 ─────────────────────────────────────────
   // static Route<void> topic()     => MaterialPageRoute(builder: (_) => const TopicMainScreen());
   // static Route<void> growth()    => MaterialPageRoute(builder: (_) => const GrowthMainScreen());
-  // static Route<void> habit()     => MaterialPageRoute(builder: (_) => const HabitMainScreen());
   // static Route<void> proLesson() => MaterialPageRoute(builder: (_) => const ProLessonSelectScreen());
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
-import '../../../core/constants/app_strings.dart';
+import 'core/constants/app_strings.dart';
 
 // ══════════════════════════════════════════════════════════
 // アプリルートウィジェット
@@ -24,6 +25,14 @@ class App extends ConsumerWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
+      // DatePickerDialog 等の Material ダイアログに必須。
+      // flutter_localizations は Flutter SDK に同梱されているため
+      // pubspec.yaml への追加が必要（sdk: flutter 指定）。
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [
+        Locale('ja'), // 日本語（ピッカーが日本語表示になる）
+        Locale('en'), // 英語（フォールバック）
+      ],
       home: AppRouter.home,
     );
   }

@@ -112,6 +112,27 @@ abstract class AppStrings {
   static const String modelListEmptyNoImages = '画像が見つかりません';
   static const String modelListLoadError = '画像の読み込みに失敗しました';
 
+  // ── 習慣化サポート ──────────────────────────────────────
+  static const String habitTitle = '習慣化サポート';
+
+  // 継続カレンダー
+  static const String habitCalendarTitle = '継続カレンダー';
+  static const String habitGoToToday = '今日の日付に戻る';
+
+  /// 記録セルに表示する花丸文字
+  static const String habitFlowerCircle = '◎';
+
+  /// 吹き出し：作業時間未入力時の表示
+  static const String habitTooltipNoTime = '0分';
+
+  /// 吹き出し：作業時間の単位サフィックス
+  static const String habitTooltipMinSuffix = '分';
+
+  // カレンダー 曜日ラベル（月曜始まり）
+  static const List<String> habitWeekdays = [
+    '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日',
+  ];
+
   // ── 未実装画面 ──────────────────────────────────────────
   static const String proLessonDescription = 'プロ絵師によるテクニックを学ぶ画面です';
   static const String topicDescription = 'ランダムなお題を生成する画面です';

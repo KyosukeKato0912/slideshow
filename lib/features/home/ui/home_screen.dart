@@ -62,9 +62,9 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _FeatureNavButton(
                     label: AppStrings.featureHabit,
-                    color: AppColors.habitSupport,
+                    color: AppColors.theme,
                     enabled: AppConfig.featureHabitSupport,
-                    onTap: () {}, // TODO: AppRouter.habit() に差し替える
+                    onTap: () => Navigator.push(context, AppRouter.habit()),
                   ),
                   const SizedBox(height: 12),
                   _FeatureNavButton(

@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:   # DatePickerDialog 等の Material ダイアログに必須
+    sdk: flutter
 
 
   # The following adds the Cupertino Icons font to your application.
