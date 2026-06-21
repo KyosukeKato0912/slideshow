@@ -119,9 +119,6 @@ abstract class AppStrings {
   static const String habitCalendarTitle = '継続カレンダー';
   static const String habitGoToToday = '今日の日付に戻る';
 
-  /// 記録セルに表示する花丸文字
-  static const String habitFlowerCircle = '◎';
-
   /// 吹き出し：作業時間未入力時の表示
   static const String habitTooltipNoTime = '0分';
 

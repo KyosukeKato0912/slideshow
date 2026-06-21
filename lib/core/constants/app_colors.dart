@@ -22,4 +22,9 @@ abstract class AppColors {
   static const Color growthRecord = Colors.orange;
   static const Color habitSupport = Colors.pink;
   static const Color proArtistLesson = Colors.indigo;
+
+  // 習慣化サポート：継続カレンダー 連続記録の強調色
+  // 1〜20日目：薄い黄色 / 21日目以降：濃い黄色
+  static const Color habitStreakLight = Color(0xFFFFF59D); // yellow.shade200
+  static const Color habitStreakDark  = Color(0xFFFBC02D); // yellow.shade700
 }
