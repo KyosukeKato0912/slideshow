@@ -61,7 +61,7 @@ abstract class HabitConfig {
     return null;
   }
 
-  /// 花丸画像IDからアセットパスを返す。テスト
+  /// 花丸画像IDからアセットパスを返す。
   static String flowerCircleAssetPath(String id) =>
       '$flowerCircleAssetFolder$id.webp';
 
