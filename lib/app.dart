@@ -12,7 +12,7 @@ import 'core/constants/app_strings.dart';
 //
 // ⚠ 暫定実装：現フェーズは Navigator.push を使用。
 //   go_router 導入時は MaterialApp.router + GoRouter に移行する。
-//   ルート定義は app_router.dart に集約済み。
+//   ルート定義は app_router.dart に集約済み。コミットテスト2
 // ══════════════════════════════════════════════════════════
 class App extends ConsumerWidget {
   const App({super.key});
