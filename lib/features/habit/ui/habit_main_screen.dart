@@ -3,6 +3,7 @@ import '../../../core/config/habit_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
+import '../../../core/router/app_router.dart';
 import '../../../shared/components/app_bar_widget.dart';
 import 'habit_testdata.dart';
 
@@ -335,6 +336,44 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
                   todayKey: _dateKey(DateTime.now()),
                   openTooltipKey: _openTooltipKey,
                   onToggleTooltip: _toggleTooltip,
+                ),
+                const SizedBox(height: 32),
+
+                // ── メリハリタイマーボタン ────────────────────
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.theme,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 52),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () =>
+                      Navigator.push(context, AppRouter.habitTimer()),
+                  icon: const Icon(Icons.timer_outlined),
+                  label: Text(
+                    AppStrings.habitTimerButton,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // ── 設定ボタン ────────────────────────────────
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.theme,
+                    side: const BorderSide(color: AppColors.theme),
+                    minimumSize: const Size(double.infinity, 52),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () =>
+                      Navigator.push(context, AppRouter.habitSettings()),
+                  icon: const Icon(Icons.settings),
+                  label: Text(
+                    AppStrings.habitSettingsButton,
+                    style: const TextStyle(fontSize: 16),
+                  ),
                 ),
               ],
             ),

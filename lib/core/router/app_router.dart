@@ -3,6 +3,8 @@ import '../../features/drawing/domain/drawing_settings.dart';
 import '../../features/drawing/ui/drawing_initial_screen.dart';
 import '../../features/drawing/ui/drawing_main_screen.dart';
 import '../../features/habit/ui/habit_main_screen.dart';
+import '../../features/habit/ui/habit_settings_screen.dart';
+import '../../features/habit/ui/habit_timer_screen.dart';
 import '../../features/home/ui/home_screen.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -37,6 +39,16 @@ abstract class AppRouter {
   /// 習慣化サポート メイン画面へのルート
   static Route<void> habit() => MaterialPageRoute(
         builder: (_) => const HabitMainScreen(),
+      );
+
+  /// メリハリタイマー画面へのルート
+  static Route<void> habitTimer() => MaterialPageRoute(
+        builder: (_) => const HabitTimerScreen(),
+      );
+
+  /// 習慣化サポート設定画面へのルート
+  static Route<void> habitSettings() => MaterialPageRoute(
+        builder: (_) => const HabitSettingsScreen(),
       );
 
   // ── 将来実装予定 ─────────────────────────────────────────

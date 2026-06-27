@@ -115,6 +115,24 @@ abstract class AppStrings {
   // ── 習慣化サポート ──────────────────────────────────────
   static const String habitTitle = '習慣化サポート';
 
+  // メリハリタイマーボタン（習慣化サポートメイン画面）
+  static const String habitTimerButton = 'メリハリタイマー';
+  static const String habitSettingsButton = '設定';
+
+  // メリハリタイマー画面
+  static const String habitTimerTitle = 'メリハリタイマー';
+  static const String habitTimerStart = '開始';
+  static const String habitTimerPause = '一時停止';
+  static const String habitTimerResume = '再開';
+  static const String habitTimerReset = 'リセット';
+
+  // 設定画面
+  static const String habitSettingsTitle = '習慣化サポート設定';
+  static const String habitSettingsTimerTitle = '⏱ メリハリタイマー時間';
+  static const String habitSettingsSaveButton = '保存';
+  static const String habitSettingsSaveAndStartButton = '保存して開始';
+  static const String habitSettingsSaved = '設定を保存しました';
+
   // 継続カレンダー
   static const String habitCalendarTitle = '継続カレンダー';
   static const String habitGoToToday = '今日の日付に戻る';
