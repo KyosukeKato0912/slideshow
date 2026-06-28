@@ -5,6 +5,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/router/app_router.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../../../shared/components/banner_ad_widget.dart';
 import 'habit_testdata.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -375,6 +376,10 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
+                const SizedBox(height: 40),
+
+                // ── バナー広告 ────────────────────────────────
+                const Center(child: BannerAdWidget()),
               ],
             ),
           );

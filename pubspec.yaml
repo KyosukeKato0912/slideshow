@@ -41,6 +41,8 @@ dependencies:
   flutter_riverpod: ^2.6.1
   url_launcher: ^6.3.0
   flutter_local_notifications: ^18.0.1  # メリハリタイマー終了通知
+  timezone: ^0.9.4
+  google_mobile_ads: ^5.1.0
 
 dev_dependencies:
   flutter_test:

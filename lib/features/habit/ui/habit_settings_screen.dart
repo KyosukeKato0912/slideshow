@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../domain/habit_settings.dart';
 import '../domain/habit_settings_repository.dart';
 import '../domain/habit_timer_notifier.dart';
 import 'habit_timer_screen.dart';
@@ -11,15 +13,12 @@ import 'habit_timer_screen.dart';
 // ══════════════════════════════════════════════════════════
 // 習慣化サポート 設定画面
 //
-// メリハリタイマーのカウントダウン時間を設定する。
-// DrawingSettingsScreen と同じ設計パターンを踏襲する。
+// ── セクション ──
+//   1. メリハリタイマーセット（基本セット / 自由に設定）
+//   2. 作業開始促進通知（ON/OFF + 時刻選択）
 //
-// ── ボタン ──
-//   [保存]         設定を保存して画面を閉じる
-//   [保存して開始]  設定を保存してメリハリタイマー画面へ遷移
-//                  ただしタイマーのカウントダウンは開始ボタン押下まで始まらない
-//
-// ⚠ 保存時はタイマーをリセットする（設定変更を即時反映させるため）
+// ── AppBar ──
+//   restart_alt : 確認ダイアログ → 全設定をデフォルトに戻す
 // ══════════════════════════════════════════════════════════
 class HabitSettingsScreen extends ConsumerStatefulWidget {
   const HabitSettingsScreen({super.key});
@@ -30,8 +29,36 @@ class HabitSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
-  int _timerMinutes = HabitSettingsRepository.defaultTimerMinutes;
+  // ── タイマー設定 ──────────────────────────────────────
+  bool _isPreset     = HabitSettingsRepository.defaultIsPreset;
+  int  _timerMinutes = HabitSettingsRepository.defaultCustomTimerMinutes;
+  int  _breakMinutes = HabitSettingsRepository.defaultCustomBreakMinutes;
+
+  // ── 作業開始促進通知 ───────────────────────────────────
+  bool _reminderEnabled = HabitSettingsRepository.defaultReminderEnabled;
+  int  _reminderHour    = HabitSettingsRepository.defaultReminderHour;
+  int  _reminderMinute  = HabitSettingsRepository.defaultReminderMinute;
+
+  // ── 復帰促進通知 ───────────────────────────────────────
+  bool _comebackEnabled = HabitSettingsRepository.defaultComebackEnabled;
+  HabitComebackPeriod _comebackPeriod = HabitSettingsRepository.defaultComebackPeriod;
+
   bool _isLoading = true;
+
+  // タイマーに渡す実効値（モードに応じて解決）
+  int get _resolvedTimerMinutes => _isPreset
+      ? HabitSettingsRepository.defaultTimerMinutes
+      : _timerMinutes;
+  int get _resolvedBreakMinutes => _isPreset
+      ? HabitSettingsRepository.defaultBreakMinutes
+      : _breakMinutes;
+
+  // 通知時刻の表示文字列
+  String get _reminderTimeLabel {
+    final h = _reminderHour.toString().padLeft(2, '0');
+    final m = _reminderMinute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
 
   @override
   void initState() {
@@ -43,15 +70,50 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
     final saved = await HabitSettingsRepository.load();
     if (!mounted) return;
     setState(() {
-      if (saved != null) _timerMinutes = saved.timerMinutes;
+      if (saved != null) {
+        _isPreset        = saved.isPreset;
+        if (!saved.isPreset) {
+          _timerMinutes  = saved.timerMinutes;
+          _breakMinutes  = saved.breakMinutes;
+        }
+        _reminderEnabled = saved.reminderEnabled;
+        _reminderHour    = saved.reminderHour;
+        _reminderMinute  = saved.reminderMinute;
+        _comebackEnabled = saved.comebackEnabled;
+        _comebackPeriod  = saved.comebackPeriod;
+      }
       _isLoading = false;
     });
   }
 
   Future<void> _saveSettings() async {
-    await HabitSettingsRepository.save(timerMinutes: _timerMinutes);
-    // 設定変更を即時反映させるためタイマーをリセット・停止する
-    ref.read(habitTimerProvider.notifier).resetWithMinutes(_timerMinutes);
+    await HabitSettingsRepository.save(
+      isPreset:        _isPreset,
+      timerMinutes:    _resolvedTimerMinutes,
+      breakMinutes:    _resolvedBreakMinutes,
+      reminderEnabled: _reminderEnabled,
+      reminderHour:    _reminderHour,
+      reminderMinute:  _reminderMinute,
+      comebackEnabled: _comebackEnabled,
+      comebackPeriod:  _comebackPeriod,
+    );
+    ref.read(habitTimerProvider.notifier).resetWithMinutes(
+          minutes:      _resolvedTimerMinutes,
+          breakMinutes: _resolvedBreakMinutes,
+        );
+    // 作業開始促進通知スケジュールを更新
+    if (_reminderEnabled) {
+      await NotificationService.scheduleReminder(
+          hour: _reminderHour, minute: _reminderMinute);
+    } else {
+      await NotificationService.cancelReminder();
+    }
+    // 復帰促進通知スケジュールを更新
+    // カレンダーデータ永続化実装後は最終練習日を渡す形に差し替え。
+    // 現時点では通知ON/OFFのみ反映（スケジュール自体はカレンダー記録時に登録される）。
+    if (!_comebackEnabled) {
+      await NotificationService.cancelComeback();
+    }
   }
 
   Future<void> _onSaveOnly() async {
@@ -59,22 +121,89 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(AppStrings.habitSettingsSaved),
-        duration: const Duration(seconds: 2),
-      ),
+          content: Text(AppStrings.habitSettingsSaved),
+          duration: const Duration(seconds: 2)),
     );
-    // 画面は閉じない：SnackBar で保存完了を通知するのみ
   }
 
   Future<void> _onSaveAndStart() async {
     await _saveSettings();
     if (!mounted) return;
-    // タイマー画面へ遷移（カウントダウンは開始ボタン押下まで始まらない）
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => HabitTimerScreen(initialMinutes: _timerMinutes),
+        builder: (_) => HabitTimerScreen(
+          initialMinutes:      _resolvedTimerMinutes,
+          initialBreakMinutes: _resolvedBreakMinutes,
+        ),
       ),
     );
+  }
+
+  Future<void> _onResetToDefaults() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(AppStrings.habitSettingsResetTitle,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(AppStrings.habitSettingsResetMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppStrings.dialogCancel,
+                style: const TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(AppStrings.dialogReset),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await HabitSettingsRepository.clear();
+    setState(() {
+      _isPreset        = HabitSettingsRepository.defaultIsPreset;
+      _timerMinutes    = HabitSettingsRepository.defaultCustomTimerMinutes;
+      _breakMinutes    = HabitSettingsRepository.defaultCustomBreakMinutes;
+      _reminderEnabled = HabitSettingsRepository.defaultReminderEnabled;
+      _reminderHour    = HabitSettingsRepository.defaultReminderHour;
+      _reminderMinute  = HabitSettingsRepository.defaultReminderMinute;
+      _comebackEnabled = HabitSettingsRepository.defaultComebackEnabled;
+      _comebackPeriod  = HabitSettingsRepository.defaultComebackPeriod;
+    });
+    ref.read(habitTimerProvider.notifier).resetWithMinutes(
+          minutes:      _resolvedTimerMinutes,
+          breakMinutes: _resolvedBreakMinutes,
+        );
+    // 通知スケジュールをデフォルト値で再設定
+    await NotificationService.scheduleReminder(
+        hour: _reminderHour, minute: _reminderMinute);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppStrings.habitSettingsReset)),
+    );
+  }
+
+  // 時刻ピッカー
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _reminderHour, minute: _reminderMinute),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.theme),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _reminderHour   = picked.hour;
+      _reminderMinute = picked.minute;
+    });
   }
 
   @override
@@ -83,6 +212,13 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
       appBar: AppBarWidget(
         title: AppStrings.habitSettingsTitle,
         backgroundColor: AppColors.theme,
+        actions: [
+          IconButton(
+            tooltip: AppStrings.habitSettingsResetTitle,
+            icon: const Icon(Icons.restart_alt),
+            onPressed: _isLoading ? null : _onResetToDefaults,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(
@@ -99,13 +235,75 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // ── メリハリタイマー時間設定 ──────────────
+                      // ── 1. メリハリタイマーセット ─────────────
                       _SettingsSectionCard(
-                        title: AppStrings.habitSettingsTimerTitle,
-                        child: _TimerMinutesSetting(
-                          minutes: _timerMinutes,
-                          onChanged: (v) =>
-                              setState(() => _timerMinutes = v),
+                        title: AppStrings.habitSettingsModeTitle,
+                        child: _ModeSelector(
+                          isPreset: _isPreset,
+                          onChanged: (v) => setState(() => _isPreset = v),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── 自由設定スライダー（自由モード時のみ）──
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                        child: _isPreset
+                            ? const SizedBox.shrink()
+                            : Column(
+                                children: [
+                                  _SettingsSectionCard(
+                                    title: AppStrings.habitSettingsTimerTitle,
+                                    child: _MinutesSetting(
+                                      minutes: _timerMinutes,
+                                      minMinutes: 1,
+                                      maxMinutes: 120,
+                                      onChanged: (v) => setState(
+                                          () => _timerMinutes = v),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _SettingsSectionCard(
+                                    title: AppStrings.habitSettingsBreakTitle,
+                                    child: _MinutesSetting(
+                                      minutes: _breakMinutes,
+                                      minMinutes: 1,
+                                      maxMinutes: 60,
+                                      onChanged: (v) => setState(
+                                          () => _breakMinutes = v),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                              ),
+                      ),
+
+                      // ── 2. 作業開始促進通知 ───────────────────
+                      _SettingsSectionCard(
+                        title: AppStrings.habitReminderSectionTitle,
+                        child: _ReminderSetting(
+                          enabled:    _reminderEnabled,
+                          hour:       _reminderHour,
+                          minute:     _reminderMinute,
+                          timeLabel:  _reminderTimeLabel,
+                          onToggle:   (v) =>
+                              setState(() => _reminderEnabled = v),
+                          onPickTime: _pickReminderTime,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── 3. 復帰促進通知 ───────────────────────
+                      _SettingsSectionCard(
+                        title: AppStrings.habitComebackSectionTitle,
+                        child: _ComebackSetting(
+                          enabled: _comebackEnabled,
+                          period:  _comebackPeriod,
+                          onToggle: (v) =>
+                              setState(() => _comebackEnabled = v),
+                          onPeriodChanged: (v) =>
+                              setState(() => _comebackPeriod = v),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -117,13 +315,11 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.theme,
-                                side: const BorderSide(
-                                    color: AppColors.theme),
+                                side: const BorderSide(color: AppColors.theme),
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 14),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12)),
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                               onPressed: _onSaveOnly,
                               icon: const Icon(Icons.save_outlined),
@@ -142,8 +338,7 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 14),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12)),
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                               onPressed: _onSaveAndStart,
                               icon: const Icon(Icons.play_arrow),
@@ -165,7 +360,377 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
 }
 
 // ══════════════════════════════════════════════════════════
-// 設定セクションカード（DrawingSettingsScreen._SettingsSectionCard と同形式）
+// モード選択ウィジェット
+// ══════════════════════════════════════════════════════════
+class _ModeSelector extends StatelessWidget {
+  final bool isPreset;
+  final ValueChanged<bool> onChanged;
+
+  const _ModeSelector({required this.isPreset, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              _ModeTab(
+                label: AppStrings.habitModePreset,
+                icon: Icons.auto_awesome,
+                selected: isPreset,
+                onTap: () => onChanged(true),
+                borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(11)),
+              ),
+              _ModeTab(
+                label: AppStrings.habitModeCustom,
+                icon: Icons.tune,
+                selected: !isPreset,
+                onTap: () => onChanged(false),
+                borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(11)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: _ModeDescription(
+            key: ValueKey(isPreset),
+            isPreset: isPreset,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeTab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  final BorderRadius borderRadius;
+
+  const _ModeTab({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+    required this.borderRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.theme : Colors.transparent,
+            borderRadius: borderRadius,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 18,
+                  color: selected ? Colors.white : Colors.grey.shade600),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? Colors.white : Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeDescription extends StatelessWidget {
+  final bool isPreset;
+  const _ModeDescription({super.key, required this.isPreset});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.themeLight,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.themeBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isPreset ? Icons.info_outline : Icons.edit_note,
+            size: 16,
+            color: AppColors.themeDark,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              isPreset ? AppStrings.habitPresetDesc : AppStrings.habitCustomDesc,
+              style: TextStyle(fontSize: 13, color: AppColors.themeDark),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 作業開始促進通知設定ウィジェット
+// ══════════════════════════════════════════════════════════
+class _ReminderSetting extends StatelessWidget {
+  final bool enabled;
+  final int hour;
+  final int minute;
+  final String timeLabel;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onPickTime;
+
+  const _ReminderSetting({
+    required this.enabled,
+    required this.hour,
+    required this.minute,
+    required this.timeLabel,
+    required this.onToggle,
+    required this.onPickTime,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // ON/OFF トグル
+        SwitchListTile(
+          value: enabled,
+          activeColor: AppColors.theme,
+          contentPadding: EdgeInsets.zero,
+          onChanged: onToggle,
+          title: Text(
+            AppStrings.habitReminderEnabledLabel,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          subtitle: Text(
+            enabled
+                ? AppStrings.habitReminderEnabledDesc
+                : AppStrings.habitReminderDisabledDesc,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+          secondary: Icon(
+            enabled ? Icons.notifications_active : Icons.notifications_off,
+            color: enabled ? AppColors.theme : Colors.grey,
+          ),
+        ),
+
+        // 時刻選択（ONのとき表示）
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          child: enabled
+              ? Column(
+                  children: [
+                    const Divider(height: 8),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const SizedBox(width: 4),
+                        Icon(Icons.access_time,
+                            size: 18, color: AppColors.themeDark),
+                        const SizedBox(width: 8),
+                        Text(
+                          AppStrings.habitReminderTimeLabel,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                        const Spacer(),
+                        // 時刻表示ボタン
+                        InkWell(
+                          onTap: onPickTime,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.themeLight,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.themeBorder),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  timeLabel,
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.themeDark,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(Icons.edit,
+                                    size: 16, color: AppColors.theme),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 復帰促進通知設定ウィジェット
+// ══════════════════════════════════════════════════════════
+class _ComebackSetting extends StatelessWidget {
+  final bool enabled;
+  final HabitComebackPeriod period;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<HabitComebackPeriod> onPeriodChanged;
+
+  const _ComebackSetting({
+    required this.enabled,
+    required this.period,
+    required this.onToggle,
+    required this.onPeriodChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // ON/OFF トグル
+        SwitchListTile(
+          value: enabled,
+          activeColor: AppColors.theme,
+          contentPadding: EdgeInsets.zero,
+          onChanged: onToggle,
+          title: Text(
+            AppStrings.habitComebackEnabledLabel,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          subtitle: Text(
+            enabled
+                ? AppStrings.habitComebackEnabledDesc
+                : AppStrings.habitComebackDisabledDesc,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+          secondary: Icon(
+            enabled ? Icons.person_add_alt_1 : Icons.person_off_outlined,
+            color: enabled ? AppColors.theme : Colors.grey,
+          ),
+        ),
+
+        // 期間選択（ONのとき表示）
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          child: enabled
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Divider(height: 8),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const SizedBox(width: 4),
+                        Icon(Icons.hourglass_empty,
+                            size: 18, color: AppColors.themeDark),
+                        const SizedBox(width: 8),
+                        Text(
+                          AppStrings.habitComebackPeriodLabel,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // 3択セグメントボタン
+                    Row(
+                      children: HabitComebackPeriod.values.map((p) {
+                        final selected = period == p;
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                                right: p != HabitComebackPeriod.values.last
+                                    ? 8
+                                    : 0),
+                            child: GestureDetector(
+                              onTap: () => onPeriodChanged(p),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? AppColors.theme
+                                      : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: selected
+                                        ? AppColors.theme
+                                        : Colors.grey.shade300,
+                                  ),
+                                ),
+                                child: Text(
+                                  p.label,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: selected
+                                        ? Colors.white
+                                        : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 設定セクションカード
 // ══════════════════════════════════════════════════════════
 class _SettingsSectionCard extends StatelessWidget {
   final String title;
@@ -183,11 +748,9 @@ class _SettingsSectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             child,
           ],
@@ -198,22 +761,20 @@ class _SettingsSectionCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════
-// タイマー時間設定ウィジェット
-//
-// DrawingSettingsScreen の _DurationSetting と同パターン。
-// ＋/－ボタン＋Sliderで分単位を設定する。
+// 分数設定ウィジェット（作業時間・休憩時間共用）
 // ══════════════════════════════════════════════════════════
-class _TimerMinutesSetting extends StatelessWidget {
+class _MinutesSetting extends StatelessWidget {
   final int minutes;
+  final int minMinutes;
+  final int maxMinutes;
   final ValueChanged<int> onChanged;
 
-  // 設定範囲
-  static const int _minMinutes = 1;
-  static const int _maxMinutes = 120;
-  static const int _stepMinutes = 1;
+  static const int _step = 1;
 
-  const _TimerMinutesSetting({
+  const _MinutesSetting({
     required this.minutes,
+    required this.minMinutes,
+    required this.maxMinutes,
     required this.onChanged,
   });
 
@@ -225,9 +786,8 @@ class _TimerMinutesSetting extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton(
-              onPressed: minutes > _minMinutes
-                  ? () => onChanged(minutes - _stepMinutes)
-                  : null,
+              onPressed:
+                  minutes > minMinutes ? () => onChanged(minutes - _step) : null,
               icon: const Icon(Icons.remove_circle_outline),
               color: AppColors.theme,
               iconSize: 32,
@@ -243,9 +803,8 @@ class _TimerMinutesSetting extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             IconButton(
-              onPressed: minutes < _maxMinutes
-                  ? () => onChanged(minutes + _stepMinutes)
-                  : null,
+              onPressed:
+                  minutes < maxMinutes ? () => onChanged(minutes + _step) : null,
               icon: const Icon(Icons.add_circle_outline),
               color: AppColors.theme,
               iconSize: 32,
@@ -254,15 +813,15 @@ class _TimerMinutesSetting extends StatelessWidget {
         ),
         Slider(
           value: minutes.toDouble(),
-          min: _minMinutes.toDouble(),
-          max: _maxMinutes.toDouble(),
-          divisions: _maxMinutes - _minMinutes,
+          min: minMinutes.toDouble(),
+          max: maxMinutes.toDouble(),
+          divisions: maxMinutes - minMinutes,
           activeColor: AppColors.theme,
           label: '$minutes 分',
           onChanged: (v) => onChanged(v.round()),
         ),
         Text(
-          '$_minMinutes 分〜$_maxMinutes 分',
+          '$minMinutes 分〜$maxMinutes 分',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
         ),
       ],

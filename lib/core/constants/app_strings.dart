@@ -125,13 +125,51 @@ abstract class AppStrings {
   static const String habitTimerPause = '一時停止';
   static const String habitTimerResume = '再開';
   static const String habitTimerReset = 'リセット';
+  static const String habitCountDownLabel = '作業中';
+  static const String habitCountUpLabel = '総作業時間';
+  static const String habitCountUpResetDialogTitle = '総作業時間のリセット';
+  static const String habitCountUpResetDialogMessage =
+      '総作業時間が0になります。この操作は元に戻せません。総作業時間をリセットしますか？';
+  static const String habitCountUpResetDialogConfirm = 'リセット';
+  static const String habitCountUpResetDialogCancel = 'キャンセル';
 
   // 設定画面
-  static const String habitSettingsTitle = '習慣化サポート設定';
-  static const String habitSettingsTimerTitle = '⏱ メリハリタイマー時間';
-  static const String habitSettingsSaveButton = '保存';
+  static const String habitSettingsTitle         = '習慣化サポート設定';
+  static const String habitSettingsModeTitle     = '⏱ メリハリタイマーセット';
+  static const String habitSettingsTimerTitle    = '⏱ 作業時間';
+  static const String habitSettingsBreakTitle    = '☕ 休憩時間';
+  static const String habitSettingsSaveButton    = '保存';
   static const String habitSettingsSaveAndStartButton = '保存して開始';
-  static const String habitSettingsSaved = '設定を保存しました';
+  static const String habitSettingsSaved         = '設定を保存しました';
+
+  // メリハリタイマーセット選択
+  static const String habitModePreset = '基本セット';
+  static const String habitModeCustom = '自由に設定';
+  static const String habitPresetDesc = '25分作業 + 5分休憩（ポモドーロ標準）';
+  static const String habitCustomDesc = '作業時間と休憩時間を自由に設定';
+
+  // 作業開始促進通知
+  static const String habitReminderSectionTitle  = '🔔 作業開始促進通知';
+  static const String habitReminderEnabledLabel  = '毎日通知を受け取る';
+  static const String habitReminderEnabledDesc   = '設定した時刻に作業開始をお知らせします';
+  static const String habitReminderDisabledDesc  = '通知はオフです';
+  static const String habitReminderTimeLabel     = '通知時刻';
+
+  // 復帰促進通知
+  static const String habitComebackSectionTitle   = '📅 復帰促進通知';
+  static const String habitComebackEnabledLabel   = '復帰促進通知を受け取る';
+  static const String habitComebackEnabledDesc    = '練習が空いたときにお知らせします';
+  static const String habitComebackDisabledDesc   = '通知はオフです';
+  static const String habitComebackPeriodLabel    = '通知するまでの期間';
+
+  // リセット
+  static const String habitSettingsResetTitle   = '設定を初期値に戻す';
+  static const String habitSettingsResetMessage = 'すべての設定をデフォルト値に戻します。よろしいですか？';
+  static const String habitSettingsReset        = '設定を初期値に戻しました';
+
+  // メリハリタイマー フェーズラベル
+  static const String habitPhaseWork  = '作業中';
+  static const String habitPhaseBreak = '休憩中';
 
   // 継続カレンダー
   static const String habitCalendarTitle = '継続カレンダー';
