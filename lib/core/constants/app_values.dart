@@ -49,6 +49,22 @@ abstract class AppValues {
   // ── モデルカテゴリ ──────────────────────────────────────
   // NOTE: カテゴリ定義順は DrawingConfig.categories のリスト順で管理する
 
+  // ── 習慣化サポート ───────────────────────────────────────
+  /// 設定：メリハリタイマー 作業時間の下限（分）
+  static const int habitTimerMinMinutes = 1;
+
+  /// 設定：メリハリタイマー 作業時間の上限（分）
+  static const int habitTimerMaxMinutes = 120;
+
+  /// 設定：メリハリタイマー 休憩時間の下限（分）
+  static const int habitBreakMinMinutes = 1;
+
+  /// 設定：メリハリタイマー 休憩時間の上限（分）
+  static const int habitBreakMaxMinutes = 60;
+
+  /// 継続カレンダー：連続記録が濃い黄色になる日数のしきい値
+  static const int habitStreakDarkThresholdDays = 21;
+
   // ── 将来実装予定（Hive typeId 一覧） ───────────────────
   // GrowthRecord   : typeId = 0  （未実装）
   // HabitRecord    : typeId = 1  （未実装）

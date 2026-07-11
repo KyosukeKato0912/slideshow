@@ -5,6 +5,7 @@ import '../../../core/constants/app_values.dart';
 import '../../../core/extensions/int_ext.dart';
 import '../../../core/router/app_router.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../../../shared/components/hold_repeat_icon_button.dart';
 import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 import '../domain/drawing_settings.dart';
@@ -458,13 +459,13 @@ class _MaxWorkTimeSetting extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(
-                onPressed: _minutes > AppValues.drawingMaxWorkTimeMinMin
+              HoldRepeatIconButton(
+                onStep: _minutes > AppValues.drawingMaxWorkTimeMinMin
                     ? () => onChanged(
                         (_minutes - AppValues.drawingMaxWorkTimeStepMin) *
                             60)
                     : null,
-                icon: const Icon(Icons.remove_circle_outline),
+                icon: Icons.remove_circle_outline,
                 color: AppColors.theme,
                 iconSize: 32,
               ),
@@ -478,13 +479,13 @@ class _MaxWorkTimeSetting extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              IconButton(
-                onPressed: _minutes < AppValues.drawingMaxWorkTimeMaxMin
+              HoldRepeatIconButton(
+                onStep: _minutes < AppValues.drawingMaxWorkTimeMaxMin
                     ? () => onChanged(
                         (_minutes + AppValues.drawingMaxWorkTimeStepMin) *
                             60)
                     : null,
-                icon: const Icon(Icons.add_circle_outline),
+                icon: Icons.add_circle_outline,
                 color: AppColors.theme,
                 iconSize: 32,
               ),
@@ -536,9 +537,9 @@ class _DurationSetting extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            IconButton(
-              onPressed: onDecrement,
-              icon: const Icon(Icons.remove_circle_outline),
+            HoldRepeatIconButton(
+              onStep: onDecrement,
+              icon: Icons.remove_circle_outline,
               color: AppColors.theme,
               iconSize: 32,
             ),
@@ -552,9 +553,9 @@ class _DurationSetting extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            IconButton(
-              onPressed: onIncrement,
-              icon: const Icon(Icons.add_circle_outline),
+            HoldRepeatIconButton(
+              onStep: onIncrement,
+              icon: Icons.add_circle_outline,
               color: AppColors.theme,
               iconSize: 32,
             ),

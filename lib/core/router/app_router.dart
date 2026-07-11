@@ -42,8 +42,19 @@ abstract class AppRouter {
       );
 
   /// メリハリタイマー画面へのルート
-  static Route<void> habitTimer() => MaterialPageRoute(
-        builder: (_) => const HabitTimerScreen(),
+  ///
+  /// [initialMinutes] / [initialBreakMinutes] を指定した場合、その値で
+  /// タイマーを初期化する（習慣化サポート設定画面の「保存して開始」から使用）。
+  /// 省略時は保存済み設定（HabitSettingsRepository）から読み込まれる。
+  static Route<void> habitTimer({
+    int? initialMinutes,
+    int? initialBreakMinutes,
+  }) =>
+      MaterialPageRoute(
+        builder: (_) => HabitTimerScreen(
+          initialMinutes: initialMinutes,
+          initialBreakMinutes: initialBreakMinutes,
+        ),
       );
 
   /// 習慣化サポート設定画面へのルート

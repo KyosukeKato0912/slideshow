@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../shared/components/app_bar_widget.dart';
+import '../../../shared/components/hold_repeat_icon_button.dart';
 import '../domain/habit_settings.dart';
 import '../domain/habit_settings_repository.dart';
-import '../domain/habit_timer_notifier.dart';
-import 'habit_timer_screen.dart';
+import '../state/habit_timer_notifier.dart';
 
 // ══════════════════════════════════════════════════════════
 // 習慣化サポート 設定画面
@@ -130,11 +131,9 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
     await _saveSettings();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => HabitTimerScreen(
-          initialMinutes:      _resolvedTimerMinutes,
-          initialBreakMinutes: _resolvedBreakMinutes,
-        ),
+      AppRouter.habitTimer(
+        initialMinutes:      _resolvedTimerMinutes,
+        initialBreakMinutes: _resolvedBreakMinutes,
       ),
     );
   }
@@ -257,8 +256,8 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
                                     title: AppStrings.habitSettingsTimerTitle,
                                     child: _MinutesSetting(
                                       minutes: _timerMinutes,
-                                      minMinutes: 1,
-                                      maxMinutes: 120,
+                                      minMinutes: AppValues.habitTimerMinMinutes,
+                                      maxMinutes: AppValues.habitTimerMaxMinutes,
                                       onChanged: (v) => setState(
                                           () => _timerMinutes = v),
                                     ),
@@ -268,8 +267,8 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
                                     title: AppStrings.habitSettingsBreakTitle,
                                     child: _MinutesSetting(
                                       minutes: _breakMinutes,
-                                      minMinutes: 1,
-                                      maxMinutes: 60,
+                                      minMinutes: AppValues.habitBreakMinMinutes,
+                                      maxMinutes: AppValues.habitBreakMaxMinutes,
                                       onChanged: (v) => setState(
                                           () => _breakMinutes = v),
                                     ),
@@ -785,10 +784,11 @@ class _MinutesSetting extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            IconButton(
-              onPressed:
-                  minutes > minMinutes ? () => onChanged(minutes - _step) : null,
-              icon: const Icon(Icons.remove_circle_outline),
+            HoldRepeatIconButton(
+              onStep: minutes > minMinutes
+                  ? () => onChanged(minutes - _step)
+                  : null,
+              icon: Icons.remove_circle_outline,
               color: AppColors.theme,
               iconSize: 32,
             ),
@@ -802,10 +802,11 @@ class _MinutesSetting extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            IconButton(
-              onPressed:
-                  minutes < maxMinutes ? () => onChanged(minutes + _step) : null,
-              icon: const Icon(Icons.add_circle_outline),
+            HoldRepeatIconButton(
+              onStep: minutes < maxMinutes
+                  ? () => onChanged(minutes + _step)
+                  : null,
+              icon: Icons.add_circle_outline,
               color: AppColors.theme,
               iconSize: 32,
             ),

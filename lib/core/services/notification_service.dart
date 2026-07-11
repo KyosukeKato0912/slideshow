@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -9,8 +10,8 @@ import '../constants/app_colors.dart';
 // 通知サービス
 //
 // ■ 即時通知
-//   showWorkFinished()  : 作業終了 → 休憩開始（タイマー画面内バナー / ネイティブ通知）
-//   showBreakFinished() : 休憩終了 → 作業開始（タイマー画面内バナー / ネイティブ通知）
+//   showWorkFinished()  : 作業終了 → 休憩開始（軽い振動＋タイマー画面内バナー / ネイティブ通知）
+//   showBreakFinished() : 休憩終了 → 作業開始（軽い振動＋タイマー画面内バナー / ネイティブ通知）
 //
 // ■ 毎日スケジュール通知
 //   scheduleReminder(hour, minute) : 毎日指定時刻に作業開始を促す通知を登録
@@ -80,6 +81,7 @@ class NotificationService {
 
   // ── 作業終了（→ 休憩開始）通知 ────────────────────────
   static Future<void> showWorkFinished() async {
+    HapticFeedback.lightImpact();
     if (kIsWeb) {
       _showWebBanner(
           icon: Icons.coffee_outlined,
@@ -98,6 +100,7 @@ class NotificationService {
 
   // ── 休憩終了（→ 作業開始）通知 ────────────────────────
   static Future<void> showBreakFinished() async {
+    HapticFeedback.lightImpact();
     if (kIsWeb) {
       _showWebBanner(
           icon: Icons.play_circle_outline,

@@ -5,7 +5,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../shared/components/app_bar_widget.dart';
 import '../../../shared/components/banner_ad_widget.dart';
-import '../domain/habit_timer_notifier.dart';
+import '../state/habit_timer_notifier.dart';
 
 // ══════════════════════════════════════════════════════════
 // メリハリタイマー画面
@@ -38,6 +38,16 @@ class HabitTimerScreen extends ConsumerStatefulWidget {
 class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
   HabitTimerNotifier? _notifier;
 
+  // ── 総作業時間パネルの配色 ─────────────────────────
+  // 作業中タイマーパネル（phaseBgColor 等）とは独立した変数。
+  // 休憩中でも色は変化させない（常に固定）。
+  static const Color _countUpBgColor = AppColors.themeLight;
+  static const Color _countUpBorderColor = AppColors.themeBorder;
+  static const Color _countUpTextColor = AppColors.themeDark;
+  static const Color _countUpAccentColor = AppColors.theme;
+  // 総作業時間パネル全体の透明度（0.0〜1.0）。ここを変更するだけで調整可能。
+  static const double _countUpOpacity = 0.7;
+
   @override
   void initState() {
     super.initState();
@@ -62,8 +72,7 @@ class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(AppStrings.habitCountUpResetDialogTitle,
             style: const TextStyle(fontWeight: FontWeight.bold)),
         content: Text(AppStrings.habitCountUpResetDialogMessage),
@@ -103,9 +112,8 @@ class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
     });
 
     // 現フェーズのラベルと色
-    final phaseLabel = s.isBreak
-        ? AppStrings.habitPhaseBreak
-        : AppStrings.habitPhaseWork;
+    final phaseLabel =
+        s.isBreak ? AppStrings.habitPhaseBreak : AppStrings.habitPhaseWork;
     // パネル：休憩中は緑系、作業中はテーマ色
     final phaseColor = s.isBreak ? Colors.green.shade800 : AppColors.themeDark;
     final phaseBgColor =
@@ -127,8 +135,7 @@ class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
                   .clamp(AppValues.outerPadMin, AppValues.outerPadMax);
 
           return SingleChildScrollView(
-            padding:
-                EdgeInsets.symmetric(horizontal: outerPad, vertical: 32),
+            padding: EdgeInsets.symmetric(horizontal: outerPad, vertical: 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -141,24 +148,27 @@ class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
                   borderColor: phaseBorderColor,
                   textColor: phaseColor,
                   onReset: s.isReady
-                      ? () => ref
-                          .read(habitTimerProvider.notifier)
-                          .resetCountDown()
+                      ? () =>
+                          ref.read(habitTimerProvider.notifier).resetCountDown()
                       : null,
                 ),
                 const SizedBox(height: 20),
 
-                // ── カウントアップ ──────────────────────────
-                _TimerPanel(
-                  label: AppStrings.habitCountUpLabel,
-                  largeLabel: true,
-                  displayText: s.displayCountUp,
-                  bgColor: AppColors.themeLight,
-                  borderColor: AppColors.themeBorder,
-                  textColor: AppColors.themeDark,
-                  onReset: s.countUpSeconds > 0
-                      ? () => _confirmResetCountUp()
-                      : null,
+                // ── カウントアップ（総作業時間：独立した固定配色）──
+                Opacity(
+                  opacity: _countUpOpacity,
+                  child: _TimerPanel(
+                    label: AppStrings.habitCountUpLabel,
+                    largeLabel: true,
+                    displayText: s.displayCountUp,
+                    bgColor: _countUpBgColor,
+                    borderColor: _countUpBorderColor,
+                    textColor: _countUpTextColor,
+                    accentColor: _countUpAccentColor,
+                    onReset: s.countUpSeconds > 0
+                        ? () => _confirmResetCountUp()
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 32),
 
@@ -167,9 +177,8 @@ class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
                   height: 56,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: !s.isReady
-                          ? Colors.grey.shade300
-                          : phaseButtonColor,
+                      backgroundColor:
+                          !s.isReady ? Colors.grey.shade300 : phaseButtonColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
@@ -177,12 +186,10 @@ class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
                     onPressed: !s.isReady
                         ? null
                         : s.isRunning
-                            ? () => ref
-                                .read(habitTimerProvider.notifier)
-                                .pause()
-                            : () => ref
-                                .read(habitTimerProvider.notifier)
-                                .start(),
+                            ? () =>
+                                ref.read(habitTimerProvider.notifier).pause()
+                            : () =>
+                                ref.read(habitTimerProvider.notifier).start(),
                     icon: Icon(
                       s.isRunning ? Icons.pause : Icons.play_arrow,
                       size: 28,
@@ -215,6 +222,9 @@ class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
 
 // ══════════════════════════════════════════════════════════
 // タイマーパネル（カウントダウン・カウントアップ共用）
+//
+// パネル横幅は親の最大幅（開始ボタンと同幅）に伸張。
+// リセットボタンはパネル右端に Stack で重ねて配置。
 // ══════════════════════════════════════════════════════════
 class _TimerPanel extends StatelessWidget {
   final String label;
@@ -223,7 +233,12 @@ class _TimerPanel extends StatelessWidget {
   final Color bgColor;
   final Color borderColor;
   final Color textColor;
+  final Color accentColor;
   final VoidCallback? onReset;
+
+  // リセットボタンのサイズ
+  static const double _resetSize = 72.0;
+  static const double _resetRight = 12.0;
 
   const _TimerPanel({
     required this.label,
@@ -232,19 +247,19 @@ class _TimerPanel extends StatelessWidget {
     required this.bgColor,
     required this.borderColor,
     required this.textColor,
+    this.accentColor = AppColors.theme,
     required this.onReset,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          largeLabel ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // ラベル
         Text(
           label,
-          textAlign: largeLabel ? TextAlign.center : TextAlign.start,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: largeLabel ? 20 : 14,
             fontWeight: FontWeight.bold,
@@ -252,57 +267,58 @@ class _TimerPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        // パネル本体
-        Row(
+        // パネル＋リセットボタンを Stack で重ねる
+        Stack(
+          alignment: Alignment.centerRight,
           children: [
-            // 時間表示
-            Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 20),
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor, width: 1.5),
-                ),
-                child: Text(
-                  displayText,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 64,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+            // タイマーパネル（全幅）
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderColor, width: 1.5),
+              ),
+              child: Text(
+                displayText,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 64,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ),
-            const SizedBox(width: 16),
-            // リセットボタン
-            SizedBox(
-              width: 80,
-              height: 90,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.theme,
-                  side: const BorderSide(
-                      color: AppColors.theme, width: 1.5),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding: EdgeInsets.zero,
-                ),
-                onPressed: onReset,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.replay, size: 28),
-                    const SizedBox(height: 4),
-                    Text(
-                      AppStrings.habitTimerReset,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
+            // リセットボタン（右端に重ねる）
+            Positioned(
+              right: _resetRight,
+              child: SizedBox(
+                width: _resetSize,
+                height: _resetSize,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: accentColor,
+                    backgroundColor: Colors.white.withOpacity(0.85),
+                    side: BorderSide(color: accentColor, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    padding: EdgeInsets.zero,
+                  ),
+                  onPressed: onReset,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.replay, size: 24),
+                      const SizedBox(height: 2),
+                      Text(
+                        AppStrings.habitTimerReset,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

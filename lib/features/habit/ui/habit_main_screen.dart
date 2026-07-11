@@ -30,7 +30,7 @@ class HabitMainScreen extends StatefulWidget {
 
 class _HabitMainScreenState extends State<HabitMainScreen> {
   // ── 表示週の基準日（月曜日）────────────────────────────
-  // 初期値：2026/6/1 が属する週の月曜日（= 2026/6/1）
+  // 初期値：画面を開いた時点の今日が属する週の月曜日（initState で設定）
   late DateTime _weekMonday;
 
   // ── 現在吹き出しを表示中の日付キー（"yyyy-MM-dd"）────────
@@ -200,12 +200,14 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
 
   // ── 連続区間の長さに応じたセル背景色を返す ─────────────
   // 記録なし、または連続1日のみ：白
-  // 区間長 2〜20：薄い黄色
-  // 区間長 21以上：濃い黄色（区間全体が濃い黄色になる）
+  // 区間長 2〜(しきい値-1)：薄い黄色
+  // 区間長 しきい値以上：濃い黄色（区間全体が濃い黄色になる）
   Color _streakColor(DateTime date) {
     final span = _streakSpanAt(date);
     if (span < 2) return Colors.white;
-    if (span <= 20) return AppColors.habitStreakLight;
+    if (span < AppValues.habitStreakDarkThresholdDays) {
+      return AppColors.habitStreakLight;
+    }
     return AppColors.habitStreakDark;
   }
 
