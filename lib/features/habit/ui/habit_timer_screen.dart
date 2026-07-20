@@ -53,18 +53,11 @@ class _HabitTimerScreenState extends ConsumerState<HabitTimerScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _notifier = ref.read(habitTimerProvider.notifier);
-      _notifier!.setTimerScreenVisible(true);
       _notifier!.init(
         initialMinutes: widget.initialMinutes,
         initialBreakMinutes: widget.initialBreakMinutes,
       );
     });
-  }
-
-  @override
-  void dispose() {
-    _notifier?.setTimerScreenVisible(false);
-    super.dispose();
   }
 
   // ── 総作業時間リセット確認ダイアログ ─────────────────
@@ -281,14 +274,17 @@ class _TimerPanel extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: borderColor, width: 1.5),
               ),
-              child: Text(
-                displayText,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 64,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  displayText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 64,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
             ),

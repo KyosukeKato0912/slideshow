@@ -33,10 +33,6 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     return _adUnitIdAndroid;
   }
 
-  // ── バナー標準サイズ ──────────────────────────────────
-  static const double _bannerWidth  = 320;
-  static const double _bannerHeight = 50;
-
   @override
   void initState() {
     super.initState();

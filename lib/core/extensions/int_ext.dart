@@ -18,26 +18,16 @@ extension IntExt on int {
     return s == 0 ? '$m 分' : '$m 分 $s 秒';
   }
 
-  /// 秒数を 'MM:SS' 形式に変換する。
+  /// 秒数を 'HH:MM:SS' 形式に変換する（総作業時間等の表示用）。
   ///
   /// 例:
-  ///   45  → '00:45'
-  ///   90  → '01:30'
-  ///   600 → '10:00'
-  String toMMSS() {
-    final m = (this ~/ 60).toString().padLeft(2, '0');
-    final s = (this % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
-  /// 秒数を 'HH:MM' 形式に変換する（総作業時間等の表示用）。
-  ///
-  /// 例:
-  ///   3600 → '01:00'
-  ///   5400 → '01:30'
-  String toHHMM() {
+  ///   45   → '00:00:45'
+  ///   3600 → '01:00:00'
+  ///   5430 → '01:30:30'
+  String toHHMMSS() {
     final h = (this ~/ 3600).toString().padLeft(2, '0');
     final m = ((this % 3600) ~/ 60).toString().padLeft(2, '0');
-    return '$h:$m';
+    final s = (this % 60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
   }
 }

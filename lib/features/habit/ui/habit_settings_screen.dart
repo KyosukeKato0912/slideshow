@@ -4,11 +4,10 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/router/app_router.dart';
-import '../../../core/services/notification_service.dart';
 import '../../../shared/components/app_bar_widget.dart';
 import '../../../shared/components/hold_repeat_icon_button.dart';
 import '../domain/habit_settings.dart';
-import '../domain/habit_settings_repository.dart';
+import '../state/habit_settings_controller.dart';
 import '../state/habit_timer_notifier.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -31,27 +30,27 @@ class HabitSettingsScreen extends ConsumerStatefulWidget {
 
 class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
   // ── タイマー設定 ──────────────────────────────────────
-  bool _isPreset     = HabitSettingsRepository.defaultIsPreset;
-  int  _timerMinutes = HabitSettingsRepository.defaultCustomTimerMinutes;
-  int  _breakMinutes = HabitSettingsRepository.defaultCustomBreakMinutes;
+  bool _isPreset     = HabitSettingsController.defaultIsPreset;
+  int  _timerMinutes = HabitSettingsController.defaultCustomTimerMinutes;
+  int  _breakMinutes = HabitSettingsController.defaultCustomBreakMinutes;
 
   // ── 作業開始促進通知 ───────────────────────────────────
-  bool _reminderEnabled = HabitSettingsRepository.defaultReminderEnabled;
-  int  _reminderHour    = HabitSettingsRepository.defaultReminderHour;
-  int  _reminderMinute  = HabitSettingsRepository.defaultReminderMinute;
+  bool _reminderEnabled = HabitSettingsController.defaultReminderEnabled;
+  int  _reminderHour    = HabitSettingsController.defaultReminderHour;
+  int  _reminderMinute  = HabitSettingsController.defaultReminderMinute;
 
   // ── 復帰促進通知 ───────────────────────────────────────
-  bool _comebackEnabled = HabitSettingsRepository.defaultComebackEnabled;
-  HabitComebackPeriod _comebackPeriod = HabitSettingsRepository.defaultComebackPeriod;
+  bool _comebackEnabled = HabitSettingsController.defaultComebackEnabled;
+  HabitComebackPeriod _comebackPeriod = HabitSettingsController.defaultComebackPeriod;
 
   bool _isLoading = true;
 
   // タイマーに渡す実効値（モードに応じて解決）
   int get _resolvedTimerMinutes => _isPreset
-      ? HabitSettingsRepository.defaultTimerMinutes
+      ? HabitSettingsController.defaultTimerMinutes
       : _timerMinutes;
   int get _resolvedBreakMinutes => _isPreset
-      ? HabitSettingsRepository.defaultBreakMinutes
+      ? HabitSettingsController.defaultBreakMinutes
       : _breakMinutes;
 
   // 通知時刻の表示文字列
@@ -68,7 +67,7 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final saved = await HabitSettingsRepository.load();
+    final saved = await HabitSettingsController.load();
     if (!mounted) return;
     setState(() {
       if (saved != null) {
@@ -88,7 +87,7 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
-    await HabitSettingsRepository.save(
+    await HabitSettingsController.save(
       isPreset:        _isPreset,
       timerMinutes:    _resolvedTimerMinutes,
       breakMinutes:    _resolvedBreakMinutes,
@@ -102,19 +101,6 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
           minutes:      _resolvedTimerMinutes,
           breakMinutes: _resolvedBreakMinutes,
         );
-    // 作業開始促進通知スケジュールを更新
-    if (_reminderEnabled) {
-      await NotificationService.scheduleReminder(
-          hour: _reminderHour, minute: _reminderMinute);
-    } else {
-      await NotificationService.cancelReminder();
-    }
-    // 復帰促進通知スケジュールを更新
-    // カレンダーデータ永続化実装後は最終練習日を渡す形に差し替え。
-    // 現時点では通知ON/OFFのみ反映（スケジュール自体はカレンダー記録時に登録される）。
-    if (!_comebackEnabled) {
-      await NotificationService.cancelComeback();
-    }
   }
 
   Future<void> _onSaveOnly() async {
@@ -162,24 +148,21 @@ class _HabitSettingsScreenState extends ConsumerState<HabitSettingsScreen> {
     );
     if (confirmed != true || !mounted) return;
 
-    await HabitSettingsRepository.clear();
+    await HabitSettingsController.clear();
     setState(() {
-      _isPreset        = HabitSettingsRepository.defaultIsPreset;
-      _timerMinutes    = HabitSettingsRepository.defaultCustomTimerMinutes;
-      _breakMinutes    = HabitSettingsRepository.defaultCustomBreakMinutes;
-      _reminderEnabled = HabitSettingsRepository.defaultReminderEnabled;
-      _reminderHour    = HabitSettingsRepository.defaultReminderHour;
-      _reminderMinute  = HabitSettingsRepository.defaultReminderMinute;
-      _comebackEnabled = HabitSettingsRepository.defaultComebackEnabled;
-      _comebackPeriod  = HabitSettingsRepository.defaultComebackPeriod;
+      _isPreset        = HabitSettingsController.defaultIsPreset;
+      _timerMinutes    = HabitSettingsController.defaultCustomTimerMinutes;
+      _breakMinutes    = HabitSettingsController.defaultCustomBreakMinutes;
+      _reminderEnabled = HabitSettingsController.defaultReminderEnabled;
+      _reminderHour    = HabitSettingsController.defaultReminderHour;
+      _reminderMinute  = HabitSettingsController.defaultReminderMinute;
+      _comebackEnabled = HabitSettingsController.defaultComebackEnabled;
+      _comebackPeriod  = HabitSettingsController.defaultComebackPeriod;
     });
     ref.read(habitTimerProvider.notifier).resetWithMinutes(
           minutes:      _resolvedTimerMinutes,
           breakMinutes: _resolvedBreakMinutes,
         );
-    // 通知スケジュールをデフォルト値で再設定
-    await NotificationService.scheduleReminder(
-        hour: _reminderHour, minute: _reminderMinute);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(AppStrings.habitSettingsReset)),

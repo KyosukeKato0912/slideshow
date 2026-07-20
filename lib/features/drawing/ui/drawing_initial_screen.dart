@@ -8,9 +8,7 @@ import '../../../shared/components/app_bar_widget.dart';
 import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 import '../domain/drawing_settings.dart';
-import '../domain/drawing_settings_repository.dart';
-import 'drawing_settings_screen.dart';
-import 'model_list_screen.dart';
+import '../state/drawing_settings_controller.dart';
 
 // ══════════════════════════════════════════════════════════
 // X秒ドローイング 初期画面（準備画面）
@@ -43,7 +41,7 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
   static Future<_InitialScreenData> _loadInitialData() async {
     final results = await Future.wait([
       DrawingModelLoader.load(),
-      DrawingSettingsRepository.load(),
+      DrawingSettingsController.load(),
     ]);
     return _InitialScreenData(
       models: results[0] as List<DrawingModel>,
@@ -56,7 +54,7 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
     // モデルはキャッシュ済みなので再取得コストはゼロ
     final results = await Future.wait([
       DrawingModelLoader.load(),
-      DrawingSettingsRepository.load(),
+      DrawingSettingsController.load(),
     ]);
     if (!mounted) return;
     setState(() {
@@ -88,12 +86,12 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
 
     final settings = DrawingSettings(
       durationSec:
-          saved?.durationSec ?? DrawingSettingsRepository.defaultDurationSec,
+          saved?.durationSec ?? DrawingSettingsController.defaultDurationSec,
       selectedModels: selectedModels,
-      loop: saved?.loop ?? DrawingSettingsRepository.defaultLoop,
-      shuffle: saved?.shuffle ?? DrawingSettingsRepository.defaultShuffle,
+      loop: saved?.loop ?? DrawingSettingsController.defaultLoop,
+      shuffle: saved?.shuffle ?? DrawingSettingsController.defaultShuffle,
       maxWorkTimeSec: saved?.maxWorkTimeSec ??
-          DrawingSettingsRepository.defaultMaxWorkTimeSec,
+          DrawingSettingsController.defaultMaxWorkTimeSec,
     );
 
     Navigator.push(context, AppRouter.drawingMain(settings));
@@ -199,8 +197,7 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
                         ),
                         onPressed: () => Navigator.push(
                           context,
-                          MaterialPageRoute(
-                              builder: (_) => const ModelListScreen()),
+                          AppRouter.drawingModelList(),
                         ),
                         icon: const Icon(Icons.photo_library_outlined),
                         label: Text(
@@ -223,9 +220,7 @@ class _DrawingInitialScreenState extends State<DrawingInitialScreen> {
                         onPressed: () async {
                           await Navigator.push(
                             context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    const DrawingSettingsScreen()),
+                            AppRouter.drawingSettings(),
                           );
                           await _refreshSettings();
                         },
@@ -272,12 +267,12 @@ class DrawingSettingsSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final categories = DrawingModelLoader.categories(models);
     final duration =
-        saved?.durationSec ?? DrawingSettingsRepository.defaultDurationSec;
-    final loop = saved?.loop ?? DrawingSettingsRepository.defaultLoop;
+        saved?.durationSec ?? DrawingSettingsController.defaultDurationSec;
+    final loop = saved?.loop ?? DrawingSettingsController.defaultLoop;
     final shuffle =
-        saved?.shuffle ?? DrawingSettingsRepository.defaultShuffle;
+        saved?.shuffle ?? DrawingSettingsController.defaultShuffle;
     final maxWorkTimeSec =
-        saved?.maxWorkTimeSec ?? DrawingSettingsRepository.defaultMaxWorkTimeSec;
+        saved?.maxWorkTimeSec ?? DrawingSettingsController.defaultMaxWorkTimeSec;
 
     // 選択カテゴリの解決（selectedCats はカテゴリIDのSet）
     final categoryIds = categories.map((c) => c.id).toSet();

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
+import '../../../core/router/app_router.dart';
 import '../../../shared/components/app_bar_widget.dart';
-import '../../../shared/patterns/full_image_screen.dart';
 import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 
@@ -282,11 +282,9 @@ class _ModelThumbnailGrid extends StatelessWidget {
               model: model,
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => FullImageScreen(
-                    initialAsset: model,
-                    allAssets: allModels,
-                  ),
+                AppRouter.drawingFullImage(
+                  initialAsset: model,
+                  allAssets: allModels,
                 ),
               ),
             );

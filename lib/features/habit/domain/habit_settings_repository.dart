@@ -3,6 +3,9 @@ import 'habit_settings.dart';
 
 // ══════════════════════════════════════════════════════════
 // 習慣化サポート 設定の永続化リポジトリ
+//
+// state/ 層（HabitSettingsController）からのみ呼び出すこと。
+// ui/ から直接importしない。
 // ══════════════════════════════════════════════════════════
 class HabitSettingsRepository {
   HabitSettingsRepository._();

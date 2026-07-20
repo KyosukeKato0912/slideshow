@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/constants/app_strings.dart';
 import 'core/services/notification_service.dart';
+import 'core/theme/app_theme.dart';
 
 // ══════════════════════════════════════════════════════════
 // アプリルートウィジェット
@@ -24,10 +25,7 @@ class App extends ConsumerWidget {
       title: AppStrings.appTitle,
       // Web での SnackBar 表示のために NotificationService に渡すキー
       navigatorKey: NotificationService.navigatorKey,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [
         Locale('ja'),

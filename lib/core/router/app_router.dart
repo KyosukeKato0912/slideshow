@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import '../../features/drawing/domain/drawing_model.dart';
 import '../../features/drawing/domain/drawing_settings.dart';
 import '../../features/drawing/ui/drawing_initial_screen.dart';
 import '../../features/drawing/ui/drawing_main_screen.dart';
+import '../../features/drawing/ui/drawing_settings_screen.dart';
+import '../../features/drawing/ui/model_list_screen.dart';
 import '../../features/habit/ui/habit_main_screen.dart';
 import '../../features/habit/ui/habit_settings_screen.dart';
 import '../../features/habit/ui/habit_timer_screen.dart';
 import '../../features/home/ui/home_screen.dart';
+import '../../shared/patterns/full_image_screen.dart';
 
 // ══════════════════════════════════════════════════════════
 // ルート定義
@@ -34,6 +38,35 @@ abstract class AppRouter {
   /// [settings] に確定済みの設定値を渡すこと。
   static Route<void> drawingMain(DrawingSettings settings) => MaterialPageRoute(
         builder: (_) => DrawingMainScreen(settings: settings),
+      );
+
+  /// モデル一覧画面へのルート
+  ///
+  /// [DrawingInitialScreen] から呼び出す。
+  static Route<void> drawingModelList() => MaterialPageRoute(
+        builder: (_) => const ModelListScreen(),
+      );
+
+  /// X秒ドローイング 設定画面へのルート
+  ///
+  /// [DrawingInitialScreen] から呼び出す。
+  static Route<void> drawingSettings() => MaterialPageRoute(
+        builder: (_) => const DrawingSettingsScreen(),
+      );
+
+  /// 拡大表示画面へのルート
+  ///
+  /// [ModelListScreen] から呼び出す。[initialAsset] に最初に表示するモデル、
+  /// [allAssets] にペア検索用の全モデル一覧を渡すこと。
+  static Route<void> drawingFullImage({
+    required DrawingModel initialAsset,
+    required List<DrawingModel> allAssets,
+  }) =>
+      MaterialPageRoute(
+        builder: (_) => FullImageScreen(
+          initialAsset: initialAsset,
+          allAssets: allAssets,
+        ),
       );
 
   /// 習慣化サポート メイン画面へのルート

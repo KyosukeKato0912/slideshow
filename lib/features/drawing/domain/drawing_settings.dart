@@ -29,20 +29,4 @@ class DrawingSettings {
     this.shuffle = true,
     this.maxWorkTimeSec = 0,
   });
-
-  DrawingSettings copyWith({
-    int? durationSec,
-    List<DrawingModel>? selectedModels,
-    bool? loop,
-    bool? shuffle,
-    int? maxWorkTimeSec,
-  }) {
-    return DrawingSettings(
-      durationSec: durationSec ?? this.durationSec,
-      selectedModels: selectedModels ?? this.selectedModels,
-      loop: loop ?? this.loop,
-      shuffle: shuffle ?? this.shuffle,
-      maxWorkTimeSec: maxWorkTimeSec ?? this.maxWorkTimeSec,
-    );
-  }
 }

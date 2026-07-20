@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/extensions/int_ext.dart';
 import '../../../core/services/notification_service.dart';
 import '../domain/habit_settings_repository.dart';
 
@@ -53,12 +54,8 @@ class HabitTimerState {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  // カウントアップ表示（MM:SS）
-  String get displayCountUp {
-    final m = countUpSeconds ~/ 60;
-    final s = countUpSeconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
+  // カウントアップ表示（HH:MM:SS）
+  String get displayCountUp => countUpSeconds.toHHMMSS();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -77,13 +74,6 @@ class HabitTimerNotifier extends StateNotifier<HabitTimerState> {
   HabitTimerNotifier() : super(const HabitTimerState());
 
   Timer? _timer;
-
-  // ── タイマー画面の表示状態 ────────────────────────────
-  bool _isTimerScreenVisible = false;
-
-  void setTimerScreenVisible(bool visible) {
-    _isTimerScreenVisible = visible;
-  }
 
   // ── 初期化 ────────────────────────────────────────────
   Future<void> init({int? initialMinutes, int? initialBreakMinutes}) async {
@@ -149,12 +139,8 @@ class HabitTimerNotifier extends StateNotifier<HabitTimerState> {
         isBreak: false,
         justSwitched: true,
       );
-      // 通知：休憩終了 → 作業開始
-      if (_isTimerScreenVisible) {
-        NotificationService.showBreakFinished();
-      } else {
-        NotificationService.showBreakFinished();
-      }
+      // 通知：休憩終了 → 作業開始（画面表示中でもバナー通知。作業終了時と同じ方針）
+      NotificationService.showBreakFinished();
       // 自動で作業タイマーを再開
       _resumeAfterSwitch();
     } else {

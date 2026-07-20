@@ -60,10 +60,6 @@ class _FullImageScreenState extends State<FullImageScreen> {
   /// _sameCategoryAssets 内での現在インデックス
   late int _categoryIndex;
 
-  // カテゴリソート順での現在カテゴリの位置
-  int get _currentCategorySortIndex =>
-      DrawingConfig.categorySortIndex(_current.categoryId);
-
   // allAssets に存在するカテゴリIDを DrawingConfig の定義順で返す
   List<String> get _presentCategoryIds {
     final ids = widget.allAssets.map((a) => a.categoryId).toSet();

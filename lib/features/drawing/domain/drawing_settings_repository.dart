@@ -5,7 +5,8 @@ import '../../../core/constants/app_values.dart';
 // X秒ドローイング 設定の永続化リポジトリ
 //
 // SharedPreferences への直接アクセスをこのクラスに集約する。
-// state/ 層（DrawingSettingsNotifier）からのみ呼び出すこと。
+// state/ 層（DrawingSettingsController）からのみ呼び出すこと。
+// ui/ から直接importしない。
 // ══════════════════════════════════════════════════════════
 class DrawingSettingsRepository {
   DrawingSettingsRepository._();

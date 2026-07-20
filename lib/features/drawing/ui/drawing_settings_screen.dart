@@ -9,7 +9,7 @@ import '../../../shared/components/hold_repeat_icon_button.dart';
 import '../../../core/config/drawing_config.dart';
 import '../domain/drawing_model.dart';
 import '../domain/drawing_settings.dart';
-import '../domain/drawing_settings_repository.dart';
+import '../state/drawing_settings_controller.dart';
 
 // ══════════════════════════════════════════════════════════
 // X秒ドローイング 設定画面
@@ -26,10 +26,10 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
   List<DrawingCategoryDef> _categories = [];
   Set<String> _selectedCategories = {};
 
-  int _durationSec = DrawingSettingsRepository.defaultDurationSec;
-  bool _loop = DrawingSettingsRepository.defaultLoop;
-  bool _shuffle = DrawingSettingsRepository.defaultShuffle;
-  int _maxWorkTimeSec = DrawingSettingsRepository.defaultMaxWorkTimeSec;
+  int _durationSec = DrawingSettingsController.defaultDurationSec;
+  bool _loop = DrawingSettingsController.defaultLoop;
+  bool _shuffle = DrawingSettingsController.defaultShuffle;
+  int _maxWorkTimeSec = DrawingSettingsController.defaultMaxWorkTimeSec;
 
   bool get _allCategoriesSelected =>
       _selectedCategories.length == _categories.length;
@@ -50,7 +50,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
     try {
       final results = await Future.wait([
         DrawingModelLoader.load(),
-        DrawingSettingsRepository.load(),
+        DrawingSettingsController.load(),
       ]);
 
       if (!mounted) return;
@@ -103,7 +103,7 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
-    await DrawingSettingsRepository.save(
+    await DrawingSettingsController.save(
       durationSec: _durationSec,
       loop: _loop,
       shuffle: _shuffle,
@@ -164,14 +164,14 @@ class _DrawingSettingsScreenState extends State<DrawingSettingsScreen> {
     );
     if (confirmed != true) return;
 
-    await DrawingSettingsRepository.clear();
+    await DrawingSettingsController.clear();
     if (!mounted) return;
 
     setState(() {
-      _durationSec = DrawingSettingsRepository.defaultDurationSec;
-      _loop = DrawingSettingsRepository.defaultLoop;
-      _shuffle = DrawingSettingsRepository.defaultShuffle;
-      _maxWorkTimeSec = DrawingSettingsRepository.defaultMaxWorkTimeSec;
+      _durationSec = DrawingSettingsController.defaultDurationSec;
+      _loop = DrawingSettingsController.defaultLoop;
+      _shuffle = DrawingSettingsController.defaultShuffle;
+      _maxWorkTimeSec = DrawingSettingsController.defaultMaxWorkTimeSec;
       _selectedCategories = _categories.map((c) => c.id).toSet();
     });
     ScaffoldMessenger.of(context).showSnackBar(

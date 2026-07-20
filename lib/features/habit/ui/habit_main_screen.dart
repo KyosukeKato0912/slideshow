@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/utils/date_utils.dart';
 import '../../../shared/components/app_bar_widget.dart';
 import '../../../shared/components/banner_ad_widget.dart';
 import 'habit_testdata.dart';
@@ -11,7 +12,7 @@ import 'habit_testdata.dart';
 // ══════════════════════════════════════════════════════════
 // 習慣化サポート メイン画面
 //
-// 継続カレンダー・ポモドーロタイマーボタン・設定ボタンを表示する。
+// 継続カレンダー・メリハリタイマーボタン・設定ボタンを表示する。
 // 現フェーズ：縦3行 × 横7列のカレンダーグリッドを実装。
 //   1行目：曜日ラベル
 //   2行目：日付（表示週に応じて動的に更新）
@@ -45,30 +46,17 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
     _weekMonday = _todayMonday; // 画面を開いたら常に今日が属する週を表示
   }
 
-  // ── 指定日が属する週の月曜日を返す ──────────────────────
-  static DateTime _mondayOf(DateTime date) {
-    return DateTime(date.year, date.month, date.day)
-        .subtract(Duration(days: date.weekday - 1));
-  }
-
   // ── 表示週の日付リスト（月〜日、7日分）──────────────────
-  List<DateTime> get _weekDays =>
-      List.generate(7, (i) => _weekMonday.add(Duration(days: i)));
+  List<DateTime> get _weekDays => AppDateUtils.getWeekDates(_weekMonday);
 
   // ── 期間ラベル文字列 ─────────────────────────────────────
   String get _dateRangeLabel {
     final end = _weekMonday.add(const Duration(days: 6));
-    return '${_fmt(_weekMonday)}～${_fmt(end)}';
+    return '${AppDateUtils.formatYMD(_weekMonday)}～${AppDateUtils.formatYMD(end)}';
   }
 
-  // YYYY/M/D 形式
-  static String _fmt(DateTime d) => '${d.year}/${d.month}/${d.day}';
-
-  // M/D 形式（日付セル表示用）
-  static String _shortFmt(DateTime d) => '${d.month}/${d.day}';
-
   // ── 今日が属する週の月曜日 ───────────────────────────────
-  static DateTime get _todayMonday => _mondayOf(DateTime.now());
+  static DateTime get _todayMonday => AppDateUtils.mondayOf(DateTime.now());
 
   // ── 現在表示中の週が今週かどうか ────────────────────────
   bool get _isCurrentWeek =>
@@ -128,7 +116,7 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
     );
     if (picked != null) {
       setState(() {
-        _weekMonday = _mondayOf(picked);
+        _weekMonday = AppDateUtils.mondayOf(picked);
         _openTooltipKey = null; // 週が変わるので開いていた吹き出しは閉じる
       });
     }
@@ -139,11 +127,11 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
   // データがない日はマップに含まれない（= 花丸なし）。
   Map<String, int> _buildDailyTotals(List<DateTime> weekDays) {
     final weekSet = {
-      for (final d in weekDays) _dateKey(d),
+      for (final d in weekDays) AppDateUtils.dateKey(d),
     };
     final Map<String, int> totals = {};
     for (final r in HabitTestData.records) {
-      final key = _dateKey(r.date);
+      final key = AppDateUtils.dateKey(r.date);
       if (weekSet.contains(key)) {
         totals[key] = (totals[key] ?? 0) + r.workMinutes;
       }
@@ -151,15 +139,11 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
     return totals;
   }
 
-  // "yyyy-MM-dd" キー生成（時刻差による不一致を防ぐ）
-  static String _dateKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
   // ── テストデータ全体から「記録のある日付」の集合を作成 ──
   // 連続日数の判定には表示週外のデータも必要なため、
   // 表示週で絞り込む前の全期間データから集合を作る。
   late final Set<String> _recordedDateKeys = {
-    for (final r in HabitTestData.records) _dateKey(r.date),
+    for (final r in HabitTestData.records) AppDateUtils.dateKey(r.date),
   };
 
   // ── 指定日が属する連続記録区間の「総日数」を計算する ────
@@ -172,13 +156,13 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
   // 例：6/1〜6/25まで毎日記録がある場合、6/21時点で区間長が21に達するため
   //     6/1〜6/21までのセルが一斉に濃い黄色になる。
   int _streakSpanAt(DateTime date) {
-    final key = _dateKey(date);
+    final key = AppDateUtils.dateKey(date);
     if (!_recordedDateKeys.contains(key)) return 0;
 
     // 過去方向の連続日数（指定日を含む）
     int backCount = 0;
     DateTime cursor = date;
-    while (_recordedDateKeys.contains(_dateKey(cursor))) {
+    while (_recordedDateKeys.contains(AppDateUtils.dateKey(cursor))) {
       backCount++;
       cursor = cursor.subtract(const Duration(days: 1));
     }
@@ -190,7 +174,7 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     while (!cursor.isAfter(todayDate) &&
-        _recordedDateKeys.contains(_dateKey(cursor))) {
+        _recordedDateKeys.contains(AppDateUtils.dateKey(cursor))) {
       forwardCount++;
       cursor = cursor.add(const Duration(days: 1));
     }
@@ -334,9 +318,10 @@ class _HabitMainScreenState extends State<HabitMainScreen> {
                   weekDays: weekDays,
                   dailyTotals: dailyTotals,
                   streakColors: {
-                    for (final d in weekDays) _dateKey(d): _streakColor(d),
+                    for (final d in weekDays)
+                      AppDateUtils.dateKey(d): _streakColor(d),
                   },
-                  todayKey: _dateKey(DateTime.now()),
+                  todayKey: AppDateUtils.dateKey(DateTime.now()),
                   openTooltipKey: _openTooltipKey,
                   onToggleTooltip: _toggleTooltip,
                 ),
@@ -417,10 +402,6 @@ class _ContinuityCalendar extends StatelessWidget {
   static const double _recordH = 120.0;
   static const double _headerH = _recordH / 3; // = 40.0
 
-  // "yyyy-MM-dd" キー生成
-  static String _dateKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -434,7 +415,7 @@ class _ContinuityCalendar extends StatelessWidget {
               child: _HeaderCell(
                 text: AppStrings.habitWeekdays[i],
                 isWeekday: true,
-                isToday: _dateKey(weekDays[i]) == todayKey,
+                isToday: AppDateUtils.dateKey(weekDays[i]) == todayKey,
               ),
             )),
           ),
@@ -447,7 +428,7 @@ class _ContinuityCalendar extends StatelessWidget {
               child: _HeaderCell(
                 text: '${weekDays[i].month}/${weekDays[i].day}',
                 isWeekday: false,
-                isToday: _dateKey(weekDays[i]) == todayKey,
+                isToday: AppDateUtils.dateKey(weekDays[i]) == todayKey,
               ),
             )),
           ),
@@ -458,7 +439,7 @@ class _ContinuityCalendar extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: List.generate(7, (i) {
-              final key = _dateKey(weekDays[i]);
+              final key = AppDateUtils.dateKey(weekDays[i]);
               final hasRecord = dailyTotals.containsKey(key);
               final totalMin = dailyTotals[key] ?? 0;
               return Expanded(
