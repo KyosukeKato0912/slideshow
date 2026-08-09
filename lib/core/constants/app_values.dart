@@ -65,8 +65,12 @@ abstract class AppValues {
   /// 継続カレンダー：連続記録が濃い黄色になる日数のしきい値
   static const int habitStreakDarkThresholdDays = 21;
 
-  // ── 将来実装予定（Hive typeId 一覧） ───────────────────
-  // GrowthRecord   : typeId = 0  （未実装）
+  // ── 成長記録 ────────────────────────────────────────────
+  /// 成長記録の登録上限枚数。超過時は古いものから自動削除する
+  static const int growthMaxRecordCount = 300;
+
+  // ── Hive typeId 一覧（重複登録防止のため一元管理） ─────
+  // GrowthRecord   : typeId = 0  （実装済み）
   // HabitRecord    : typeId = 1  （未実装）
   // TopicHistory   : typeId = 2  （未実装）
   // AppSettings    : typeId = 3  （未実装）

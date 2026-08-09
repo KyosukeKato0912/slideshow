@@ -16,12 +16,17 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
   /// false にすると戻るボタンを非表示にする（ホーム画面など最上位画面で使用）
   final bool showBackButton;
 
+  /// 戻るボタン押下時の処理を上書きする（省略時は Navigator.pop）。
+  /// 選択モードのキャンセル等、通常の画面遷移以外の用途で使用する。
+  final VoidCallback? onBackPressed;
+
   const AppBarWidget({
     super.key,
     required this.title,
     required this.backgroundColor,
     this.actions,
     this.showBackButton = true,
+    this.onBackPressed,
   });
 
   @override
@@ -38,7 +43,7 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
       leading: showBackButton
           ? IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
+              onPressed: onBackPressed ?? () => Navigator.pop(context),
             )
           : null,
       actions: actions,

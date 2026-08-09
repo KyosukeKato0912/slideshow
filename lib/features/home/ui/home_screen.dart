@@ -55,9 +55,10 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _FeatureNavButton(
                     label: AppStrings.featureGrowth,
-                    color: AppColors.growthRecord,
+                    color: AppColors.theme,
                     enabled: AppConfig.featureGrowthRecord,
-                    onTap: () {}, // TODO: AppRouter.growth() に差し替える
+                    onTap: () =>
+                        Navigator.push(context, AppRouter.growth()),
                   ),
                   const SizedBox(height: 12),
                   _FeatureNavButton(

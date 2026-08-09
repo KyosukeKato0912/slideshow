@@ -10,7 +10,7 @@ abstract class AppConfig {
   // false → ホームボタン無効（未実装・準備中）
   static const bool featureXSecDrawing    = true;  // X秒ドローイング
   static const bool featureTopicGenerator = false; // お題ジェネレーター
-  static const bool featureGrowthRecord   = false; // 成長記録
+  static const bool featureGrowthRecord   = true;  // 成長記録
   static const bool featureHabitSupport   = true;  // 習慣化サポート
   static const bool featureProLesson      = false; // プロ絵師解説
 

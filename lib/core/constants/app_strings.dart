@@ -186,10 +186,46 @@ abstract class AppStrings {
     '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日',
   ];
 
+  // ── 成長記録 ────────────────────────────────────────────
+  static const String growthTitle = '成長記録';
+  static const String growthUploadButton = 'アップロード';
+
+  /// アップロード機能が未実装の間、アップロードボタン押下時に表示する案内
+  static const String growthUploadComingSoon = 'アップロード機能は準備中です';
+
+  static const String growthEmptyState = 'まだ画像がありません\nアップロードして練習の記録を始めましょう';
+
+  /// サムネラベルの連番サフィックス（例：'2枚目'）
+  static const String growthSerialSuffix = '枚目';
+
+  /// サムネラベルの所要時間サフィックス（例：'180秒'）
+  static const String growthDurationSecSuffix = '秒';
+
+  /// 選択モード時のAppBarタイトル（例：'3件選択中'）
+  static const String growthSelectionCountSuffix = '件選択中';
+
+  static const String growthDeleteDialogTitle = '削除しますか？';
+  static const String growthDeleteDialogMessageSuffix = '件の画像を削除します。この操作は取り消せません。';
+  static const String growthDeleteDialogCancel = 'キャンセル';
+  static const String growthDeleteDialogConfirm = '削除';
+
+  // ── 成長記録：アップロード画面 ──────────────────────────
+  static const String growthUploadScreenTitle = 'アップロード';
+  static const String growthDurationInputLabel = '所要時間（任意）';
+  static const String growthDurationInputUnit = '分';
+  static const String growthCameraUploadButton = 'カメラでアップロード';
+  static const String growthFileUploadButton = 'ファイルでアップロード';
+
+  /// カメラアップロードが未実装の間、ボタン押下時に表示する案内
+  static const String growthCameraComingSoon = 'カメラでのアップロードは準備中です';
+
+  // ── 成長記録：アップロード完了画面 ──────────────────────
+  static const String growthUploadCompleteTitle = 'アップロードが完了しました';
+  static const String growthUploadCompleteBackButton = '成長記録メインへ';
+
   // ── 未実装画面 ──────────────────────────────────────────
   static const String proLessonDescription = 'プロ絵師によるテクニックを学ぶ画面です';
   static const String topicDescription = 'ランダムなお題を生成する画面です';
-  static const String growthDescription = '練習の成長を記録・確認する画面です';
   static const String habitDescription = '毎日の練習習慣をサポートする画面です';
 
   // ── 共通ダイアログ ──────────────────────────────────────

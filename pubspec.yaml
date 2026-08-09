@@ -43,6 +43,10 @@ dependencies:
   flutter_local_notifications: ^18.0.1  # メリハリタイマー終了通知
   timezone: ^0.9.4
   google_mobile_ads: ^5.1.0
+  path_provider: ^2.1.5  # 成長記録：アップロード画像の端末ローカル保存先取得
+  hive: ^2.2.3  # 成長記録：メタデータ永続化
+  hive_flutter: ^1.1.0
+  image_picker: ^1.1.2  # 成長記録：ファイルからのアップロード
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +65,10 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 #flutter:
 flutter:
+  # ⚠ 成長記録のアップロード画像はここに追加しない。
+  #   assets/ はビルド時にアプリへ同梱する固定ファイル専用。
+  #   アップロード画像は実行時に path_provider 経由で端末ローカルの
+  #   アプリ専用ディレクトリに保存する（core/utils/file_utils.dart 参照）。
   assets:
     - assets/images/models/
     - assets/images/ui/

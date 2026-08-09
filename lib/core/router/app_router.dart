@@ -5,6 +5,11 @@ import '../../features/drawing/ui/drawing_initial_screen.dart';
 import '../../features/drawing/ui/drawing_main_screen.dart';
 import '../../features/drawing/ui/drawing_settings_screen.dart';
 import '../../features/drawing/ui/model_list_screen.dart';
+import '../../features/growth/domain/growth_record.dart';
+import '../../features/growth/ui/growth_full_image_screen.dart';
+import '../../features/growth/ui/growth_main_screen.dart';
+import '../../features/growth/ui/upload_complete_screen.dart';
+import '../../features/growth/ui/upload_screen.dart';
 import '../../features/habit/ui/habit_main_screen.dart';
 import '../../features/habit/ui/habit_settings_screen.dart';
 import '../../features/habit/ui/habit_timer_screen.dart';
@@ -95,8 +100,41 @@ abstract class AppRouter {
         builder: (_) => const HabitSettingsScreen(),
       );
 
+  /// 成長記録 メイン画面へのルート
+  static Route<void> growth() => MaterialPageRoute(
+        builder: (_) => const GrowthMainScreen(),
+      );
+
+  /// 成長記録 アップロード画面へのルート
+  ///
+  /// [GrowthMainScreen] から呼び出す。
+  static Route<void> growthUpload() => MaterialPageRoute(
+        builder: (_) => const UploadScreen(),
+      );
+
+  /// 成長記録 アップロード完了画面へのルート
+  ///
+  /// [UploadScreen] から呼び出す。
+  static Route<void> growthUploadComplete() => MaterialPageRoute(
+        builder: (_) => const UploadCompleteScreen(),
+      );
+
+  /// 成長記録 拡大表示画面へのルート
+  ///
+  /// [GrowthMainScreen] のサムネタップから呼び出す。[allRecords] に
+  /// 前へ/次へボタンでの移動対象となる一覧（表示中の並び順）を渡すこと。
+  static Route<void> growthFullImage({
+    required GrowthRecord initialRecord,
+    required List<GrowthRecord> allRecords,
+  }) =>
+      MaterialPageRoute(
+        builder: (_) => GrowthFullImageScreen(
+          initialRecord: initialRecord,
+          allRecords: allRecords,
+        ),
+      );
+
   // ── 将来実装予定 ─────────────────────────────────────────
   // static Route<void> topic()     => MaterialPageRoute(builder: (_) => const TopicMainScreen());
-  // static Route<void> growth()    => MaterialPageRoute(builder: (_) => const GrowthMainScreen());
   // static Route<void> proLesson() => MaterialPageRoute(builder: (_) => const ProLessonSelectScreen());
 }
