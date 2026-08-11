@@ -47,6 +47,7 @@ dependencies:
   hive: ^2.2.3  # 成長記録：メタデータ永続化
   hive_flutter: ^1.1.0
   image_picker: ^1.1.2  # 成長記録：ファイルからのアップロード
+  gal: ^2.3.0  # 成長記録：選択画像を端末ギャラリーへ保存
 
 dev_dependencies:
   flutter_test:

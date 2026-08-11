@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:gal/gal.dart';
 import '../../../core/utils/file_utils.dart';
 import '../domain/growth_record.dart';
 import '../domain/growth_repository.dart';
@@ -86,6 +87,24 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
       }
     }
     await _loadAll();
+  }
+
+  /// 指定したidの成長記録画像を端末のギャラリーに保存する。
+  /// 保存に成功した件数を返す（失敗したものはスキップして続行する）。
+  Future<int> downloadRecords(List<String> ids) async {
+    final idsToDownload = ids.toSet();
+    final targets = state.where((r) => idsToDownload.contains(r.id)).toList();
+
+    var successCount = 0;
+    for (final record in targets) {
+      try {
+        await Gal.putImage(record.imagePath, album: 'GrowthRecord');
+        successCount++;
+      } catch (_) {
+        // 個別の失敗はスキップし、残りの保存を続行する
+      }
+    }
+    return successCount;
   }
 }
 

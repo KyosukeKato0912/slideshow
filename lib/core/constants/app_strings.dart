@@ -188,7 +188,8 @@ abstract class AppStrings {
 
   // ── 成長記録 ────────────────────────────────────────────
   static const String growthTitle = '成長記録';
-  static const String growthUploadButton = 'アップロード';
+  static const String growthUploadButton = 'イラストを追加';
+  static const String growthDownloadButton = 'イラストを保存';
 
   /// アップロード機能が未実装の間、アップロードボタン押下時に表示する案内
   static const String growthUploadComingSoon = 'アップロード機能は準備中です';
@@ -208,6 +209,10 @@ abstract class AppStrings {
   static const String growthDeleteDialogMessageSuffix = '件の画像を削除します。この操作は取り消せません。';
   static const String growthDeleteDialogCancel = 'キャンセル';
   static const String growthDeleteDialogConfirm = '削除';
+
+  /// ダウンロード（端末ギャラリーへの保存）結果のSnackBar文言
+  static const String growthDownloadSuccessSuffix = '枚を保存しました';
+  static const String growthDownloadFailure = '保存に失敗した画像があります';
 
   // ── 成長記録：アップロード画面 ──────────────────────────
   static const String growthUploadScreenTitle = 'アップロード';
