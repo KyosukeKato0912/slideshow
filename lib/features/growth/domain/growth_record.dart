@@ -22,15 +22,15 @@ class GrowthRecord {
   /// 同一日内でのアップロード連番（1始まり）
   final int serialNumber;
 
-  /// 所要時間（秒）。任意入力のため未入力時は null
-  final int? durationSec;
+  /// 所要時間（分）。任意入力のため未入力時は null
+  final int? durationMin;
 
   GrowthRecord({
     required this.id,
     required this.imagePath,
     required this.date,
     required this.serialNumber,
-    this.durationSec,
+    this.durationMin,
   });
 }
 
@@ -46,13 +46,13 @@ class GrowthRecordAdapter extends TypeAdapter<GrowthRecord> {
     final dateMillis = reader.readInt();
     final serialNumber = reader.readInt();
     final hasDuration = reader.readBool();
-    final durationSec = hasDuration ? reader.readInt() : null;
+    final durationMin = hasDuration ? reader.readInt() : null;
     return GrowthRecord(
       id: id,
       imagePath: imagePath,
       date: DateTime.fromMillisecondsSinceEpoch(dateMillis),
       serialNumber: serialNumber,
-      durationSec: durationSec,
+      durationMin: durationMin,
     );
   }
 
@@ -62,9 +62,9 @@ class GrowthRecordAdapter extends TypeAdapter<GrowthRecord> {
     writer.writeString(obj.imagePath);
     writer.writeInt(obj.date.millisecondsSinceEpoch);
     writer.writeInt(obj.serialNumber);
-    writer.writeBool(obj.durationSec != null);
-    if (obj.durationSec != null) {
-      writer.writeInt(obj.durationSec!);
+    writer.writeBool(obj.durationMin != null);
+    if (obj.durationMin != null) {
+      writer.writeInt(obj.durationMin!);
     }
   }
 }

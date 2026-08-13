@@ -114,9 +114,12 @@ abstract class AppRouter {
 
   /// 成長記録 アップロード完了画面へのルート
   ///
-  /// [UploadScreen] から呼び出す。
-  static Route<void> growthUploadComplete() => MaterialPageRoute(
-        builder: (_) => const UploadCompleteScreen(),
+  /// [UploadScreen] から呼び出す。[isMaxCountReached] が true の場合、
+  /// 保持上限枚数にちょうど到達した旨の特別メッセージを表示する。
+  static Route<void> growthUploadComplete({bool isMaxCountReached = false}) =>
+      MaterialPageRoute(
+        builder: (_) =>
+            UploadCompleteScreen(isMaxCountReached: isMaxCountReached),
       );
 
   /// 成長記録 拡大表示画面へのルート

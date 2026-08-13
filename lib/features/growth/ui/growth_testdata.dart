@@ -7,9 +7,9 @@
 //
 // ■ データ追加方法
 //   GrowthTestRecord(id: 'xxx', date: DateTime(yyyy, m, d),
-//                     serialNumber: n, durationSec: ss)
+//                     serialNumber: n, durationMin: mm)
 //   を GrowthTestData.records リストに追記する。
-//   durationSec は任意入力項目のため null を許容する。
+//   durationMin は任意入力項目のため null を許容する。
 // ══════════════════════════════════════════════════════════
 
 // ── テストデータ 1件分のモデル ────────────────────────────
@@ -20,14 +20,14 @@ class GrowthTestRecord {
   /// 同一日内でのアップロード連番（1始まり）
   final int serialNumber;
 
-  /// 所要時間（秒）。任意入力のため未入力時は null。
-  final int? durationSec;
+  /// 所要時間（分）。任意入力のため未入力時は null。
+  final int? durationMin;
 
   GrowthTestRecord({
     required this.id,
     required this.date,
     required this.serialNumber,
-    this.durationSec,
+    this.durationMin,
   });
 }
 
@@ -38,31 +38,31 @@ abstract class GrowthTestData {
       id: 'test_001',
       date: DateTime(2026, 6, 1),
       serialNumber: 1,
-      durationSec: 180,
+      durationMin: 3,
     ),
     GrowthTestRecord(
       id: 'test_002',
       date: DateTime(2026, 6, 1),
       serialNumber: 2,
-      durationSec: null, // 所要時間未入力の場合は null を登録
+      durationMin: null, // 所要時間未入力の場合は null を登録
     ),
     GrowthTestRecord(
       id: 'test_003',
       date: DateTime(2026, 6, 3),
       serialNumber: 1,
-      durationSec: 300,
+      durationMin: 5,
     ),
     GrowthTestRecord(
       id: 'test_004',
       date: DateTime(2026, 6, 5),
       serialNumber: 1,
-      durationSec: 90,
+      durationMin: 2,
     ),
     GrowthTestRecord(
       id: 'test_005',
       date: DateTime(2026, 6, 5),
       serialNumber: 2,
-      durationSec: 240,
+      durationMin: 4,
     ),
   ];
 }

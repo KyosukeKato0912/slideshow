@@ -33,17 +33,25 @@ abstract class AppFileUtils {
 
   /// 成長記録画像のファイル名を組み立てる。
   ///
-  /// 日付・連番からファイル名を一意に決定する。
-  /// 例：date=2026-06-01, serialNumber=2 → '2026-06-01-2.png'
+  /// 日付・連番（・所要時間）からファイル名を一意に決定する。
+  /// 所要時間が指定されている場合は末尾に付与する。
+  /// 例：
+  ///   durationMin指定なし → date=2026-06-01, serialNumber=2
+  ///     → '2026-06-01-2枚目.png'
+  ///   durationMin=3       → date=2026-06-01, serialNumber=2
+  ///     → '2026-06-01-2枚目-3分.png'
   static String buildGrowthImageFileName({
     required DateTime date,
     required int serialNumber,
+    int? durationMin,
     String extension = 'png',
   }) {
     final y = date.year.toString().padLeft(4, '0');
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');
-    return '$y-$m-$d-$serialNumber.$extension';
+    final base = '$y-$m-$d-$serialNumber枚目';
+    final name = durationMin != null ? '$base-$durationMin分' : base;
+    return '$name.$extension';
   }
 
   /// 成長記録画像の保存先フルパスを取得する。
@@ -52,12 +60,14 @@ abstract class AppFileUtils {
   static Future<String> growthImageFilePath({
     required DateTime date,
     required int serialNumber,
+    int? durationMin,
     String extension = 'png',
   }) async {
     final dir = await growthImagesDirectory();
     final fileName = buildGrowthImageFileName(
       date: date,
       serialNumber: serialNumber,
+      durationMin: durationMin,
       extension: extension,
     );
     return '${dir.path}/$fileName';

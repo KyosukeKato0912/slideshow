@@ -174,11 +174,11 @@ class _InfoBar extends StatelessWidget {
             icon: Icons.confirmation_number_outlined,
             label: '${record.serialNumber}${AppStrings.growthSerialSuffix}',
           ),
-          if (record.durationSec != null)
+          if (record.durationMin != null)
             _InfoChip(
               icon: Icons.timer_outlined,
               label:
-                  '${record.durationSec}${AppStrings.growthDurationSecSuffix}',
+                  '${record.durationMin}${AppStrings.growthDurationMinSuffix}',
             ),
         ],
       ),

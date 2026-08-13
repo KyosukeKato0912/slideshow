@@ -199,8 +199,8 @@ abstract class AppStrings {
   /// サムネラベルの連番サフィックス（例：'2枚目'）
   static const String growthSerialSuffix = '枚目';
 
-  /// サムネラベルの所要時間サフィックス（例：'180秒'）
-  static const String growthDurationSecSuffix = '秒';
+  /// サムネラベルの所要時間サフィックス（例：'3分'）
+  static const String growthDurationMinSuffix = '分';
 
   /// 選択モード時のAppBarタイトル（例：'3件選択中'）
   static const String growthSelectionCountSuffix = '件選択中';
@@ -214,6 +214,13 @@ abstract class AppStrings {
   static const String growthDownloadSuccessSuffix = '枚を保存しました';
   static const String growthDownloadFailure = '保存に失敗した画像があります';
 
+  // ── 成長記録：絞込 ────────────────────────────────────────
+  // model_list_screen.dart の絞込UI（ラベル・クリア文言）に準拠。
+  static const String growthFilterDateLabel = '日付';
+  static const String growthFilterDateHint = '日付で絞り込み';
+  static const String growthFilterClear = 'フィルターをクリア';
+  static const String growthEmptyFiltered = '条件に一致する画像が見つかりません';
+
   // ── 成長記録：アップロード画面 ──────────────────────────
   static const String growthUploadScreenTitle = 'アップロード';
   static const String growthDurationInputLabel = '所要時間（任意）';
@@ -224,9 +231,26 @@ abstract class AppStrings {
   /// カメラアップロードが未実装の間、ボタン押下時に表示する案内
   static const String growthCameraComingSoon = 'カメラでのアップロードは準備中です';
 
+  /// 所要時間欄に半角数字以外が入力された状態でアップロードボタンが
+  /// 押された場合に表示するエラー
+  static const String growthDurationInvalidError = '所要時間は半角数字で入力してください';
+
+  /// 【検証用】成長記録メイン画面の上限到達フラグリセットボタンのラベル
+  static const String growthDebugResetMaxCountButtonLabel =
+      '上限到達フラグをリセット(検証用)';
+
+  /// 【検証用】上限到達フラグリセット完了時に表示するメッセージ
+  static const String growthDebugResetMaxCountDoneMessage =
+      '上限到達フラグをリセットしました';
+
   // ── 成長記録：アップロード完了画面 ──────────────────────
   static const String growthUploadCompleteTitle = 'アップロードが完了しました';
   static const String growthUploadCompleteBackButton = '成長記録メインへ';
+
+  /// 保持上限枚数にちょうど到達したアップロード完了時のみ表示する
+  /// 特別メッセージ（{count} は [GrowthConfig.maxRecordCount] に置換）
+  static const String growthUploadCompleteMaxCountMessage =
+      'これで{count}枚達成です！\nこれからも成長の記録を続けていきましょう';
 
   // ── 未実装画面 ──────────────────────────────────────────
   static const String proLessonDescription = 'プロ絵師によるテクニックを学ぶ画面です';

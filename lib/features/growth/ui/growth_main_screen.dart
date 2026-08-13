@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/config/growth_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/utils/date_utils.dart';
 import '../../../shared/components/app_bar_widget.dart';
 import '../domain/growth_record.dart';
 import '../state/growth_provider.dart';
@@ -21,7 +23,14 @@ import '../state/growth_provider.dart';
 // 長押し開始位置〜現在位置の範囲（一覧の並び順）を連続選択できる。
 // 選択後はAppBarの削除ボタンでまとめて削除できる。
 //
-//   絞込・SNS投稿・ダウンロード・PDF等は次のステップで対応する。
+// 絞込（日付範囲）: model_list_screen.dart の絞込UI（検索エリア・
+// 件数＋クリア行・空状態の出し分け）に準拠。選択中の日付範囲に
+// 一致するレコードのみをグリッドに表示する。長押しドラッグ選択は
+// 表示中（フィルタ後）のレコード順に対して行われる。
+// フルイメージ表示（AppRouter.growthFullImage）はmodel_list_screen
+// に合わせ、フィルタの影響を受けない全レコードをスワイプ対象として渡す。
+//
+//   SNS投稿・PDF等は次のステップで対応する。
 //
 // ⚠ 範囲選択の座標→インデックス変換は、GridViewのレイアウト定数
 //   （crossAxisSpacing/mainAxisSpacing/childAspectRatio等）を
@@ -46,7 +55,52 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
 
   bool _isDownloading = false;
 
+  /// 絞込中の日付範囲（null = 絞込なし）
+  DateTimeRange? _selectedDateRange;
+
   bool get _isSelectionMode => _selectedIds.isNotEmpty;
+
+  bool get _hasFilter => _selectedDateRange != null;
+
+  // ── 日付範囲での絞込 ─────────────────────────────────────
+  List<GrowthRecord> _applyFilter(List<GrowthRecord> all) {
+    final range = _selectedDateRange;
+    if (range == null) return all;
+    final start = DateTime(range.start.year, range.start.month, range.start.day);
+    final end = DateTime(range.end.year, range.end.month, range.end.day);
+    return all.where((record) {
+      final d = DateTime(record.date.year, record.date.month, record.date.day);
+      return !d.isBefore(start) && !d.isAfter(end);
+    }).toList();
+  }
+
+  void _clearFilter() {
+    setState(() => _selectedDateRange = null);
+  }
+
+  Future<void> _onPickDateRange(BuildContext context) async {
+    final today = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: _selectedDateRange,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(today.year, today.month, today.day),
+      helpText: AppStrings.growthFilterDateLabel,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.theme,
+            onPrimary: Colors.white,
+            onSurface: Colors.black87,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _selectedDateRange = picked);
+    }
+  }
 
   @override
   void dispose() {
@@ -72,18 +126,41 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
   }
 
   void _onUploadTap(BuildContext context) {
+    if (_isSelectionMode) {
+      setState(() {
+        _selectedIds.clear();
+        _dragAnchorIndex = null;
+      });
+    }
     Navigator.push(context, AppRouter.growthUpload());
+  }
+
+  /// 【検証用】保持上限到達フラグをリセットする。
+  /// GrowthConfig.showDebugResetMaxCountReachedButton が false の場合、
+  /// このボタン自体が表示されないため呼ばれない。
+  Future<void> _onDebugResetMaxCountFlagTap(BuildContext context) async {
+    await ref.read(growthProvider.notifier).resetMaxCountReachedFlag();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(AppStrings.growthDebugResetMaxCountDoneMessage),
+      ),
+    );
   }
 
   Future<void> _onDownloadTap(BuildContext context) async {
     if (_selectedIds.isEmpty || _isDownloading) return;
-    setState(() => _isDownloading = true);
+    final ids = _selectedIds.toList();
+    setState(() {
+      _isDownloading = true;
+      _selectedIds.clear();
+      _dragAnchorIndex = null;
+    });
     try {
-      final successCount = await ref
-          .read(growthProvider.notifier)
-          .downloadRecords(_selectedIds.toList());
+      final successCount =
+          await ref.read(growthProvider.notifier).downloadRecords(ids);
       if (!mounted) return;
-      final failureCount = _selectedIds.length - successCount;
+      final failureCount = ids.length - successCount;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -125,7 +202,10 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
     if (confirmed != true) return;
 
     final ids = _selectedIds.toList();
-    setState(() => _selectedIds.clear());
+    setState(() {
+      _selectedIds.clear();
+      _dragAnchorIndex = null;
+    });
     await ref.read(growthProvider.notifier).deleteRecords(ids);
   }
 
@@ -227,7 +307,8 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final records = ref.watch(growthProvider);
+    final allRecords = ref.watch(growthProvider);
+    final records = _applyFilter(allRecords);
 
     return Scaffold(
       appBar: _isSelectionMode
@@ -258,7 +339,17 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
 
           return Column(
             children: [
-              // ── 件数 ─────────────────────────────────────
+              // ── 絞込エリア（日付範囲） ───────────────────
+              Padding(
+                padding: EdgeInsets.fromLTRB(outerPad, 12, outerPad, 4),
+                child: _DateRangeFilterField(
+                  dateRange: _selectedDateRange,
+                  onTap: () => _onPickDateRange(context),
+                  onClear: _clearFilter,
+                ),
+              ),
+
+              // ── 件数 ＋ フィルタークリア ──────────────────
               Padding(
                 padding:
                     EdgeInsets.fromLTRB(outerPad, 12, outerPad, 4),
@@ -269,6 +360,39 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
+                    const Spacer(),
+                    if (_hasFilter)
+                      TextButton.icon(
+                        onPressed: _clearFilter,
+                        icon: const Icon(Icons.filter_alt_off, size: 14),
+                        label: Text(
+                          AppStrings.growthFilterClear,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.theme,
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    if (GrowthConfig.showDebugResetMaxCountReachedButton) ...[
+                      TextButton(
+                        onPressed: () => _onDebugResetMaxCountFlagTap(context),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          AppStrings.growthDebugResetMaxCountButtonLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -276,7 +400,7 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
               // ── サムネグリッド（長押し開始→ドラッグで範囲選択） ──
               Expanded(
                 child: records.isEmpty
-                    ? const _GrowthEmptyState()
+                    ? _GrowthEmptyState(hasFilter: _hasFilter)
                     : GestureDetector(
                         onLongPressStart: (details) => _onDragSelectStart(
                           details.localPosition,
@@ -306,7 +430,7 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
                             context,
                             AppRouter.growthFullImage(
                               initialRecord: record,
-                              allRecords: records,
+                              allRecords: allRecords,
                             ),
                           ),
                         ),
@@ -382,9 +506,12 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
 // データなし空状態
 //
 // model_list_screen.dart の _ModelListEmptyState に準拠。
+// 絞込中で該当なしの場合は growthEmptyFiltered を表示する。
 // ══════════════════════════════════════════════════════════
 class _GrowthEmptyState extends StatelessWidget {
-  const _GrowthEmptyState();
+  final bool hasFilter;
+
+  const _GrowthEmptyState({required this.hasFilter});
 
   @override
   Widget build(BuildContext context) {
@@ -395,11 +522,72 @@ class _GrowthEmptyState extends StatelessWidget {
           Icon(Icons.image_search, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            AppStrings.growthEmptyState,
+            hasFilter
+                ? AppStrings.growthEmptyFiltered
+                : AppStrings.growthEmptyState,
             style: TextStyle(color: Colors.grey.shade500),
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 日付絞込フィールド
+//
+// model_list_screen.dart の _ModelNameSearchField に準拠した
+// 見た目（OutlineInputBorder・prefixIcon・isDense）のタップ専用フィールド。
+// タップで showDateRangePicker を開き、選択中は範囲をラベル表示、
+// suffixIconのクリアボタンで絞込を解除する。
+// ══════════════════════════════════════════════════════════
+class _DateRangeFilterField extends StatelessWidget {
+  final DateTimeRange? dateRange;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  const _DateRangeFilterField({
+    required this.dateRange,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  String? get _label => dateRange == null
+      ? null
+      : '${AppDateUtils.formatYMD(dateRange!.start)} 〜 '
+          '${AppDateUtils.formatYMD(dateRange!.end)}';
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        isEmpty: dateRange == null,
+        decoration: InputDecoration(
+          labelText: AppStrings.growthFilterDateLabel,
+          hintText: AppStrings.growthFilterDateHint,
+          prefixIcon:
+              const Icon(Icons.date_range_outlined, color: AppColors.theme),
+          suffixIcon: dateRange != null
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: onClear,
+                )
+              : null,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.theme, width: 2),
+          ),
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        ),
+        child: _label != null
+            ? Text(_label!, style: const TextStyle(fontSize: 14))
+            : null,
       ),
     );
   }
@@ -499,8 +687,8 @@ class _GrowthThumbnailCard extends StatelessWidget {
   String get _serialLabel =>
       '${record.serialNumber}${AppStrings.growthSerialSuffix}';
 
-  String? get _durationLabel => record.durationSec != null
-      ? '${record.durationSec}${AppStrings.growthDurationSecSuffix}'
+  String? get _durationLabel => record.durationMin != null
+      ? '${record.durationMin}${AppStrings.growthDurationMinSuffix}'
       : null;
 
   @override

@@ -19,8 +19,12 @@ import '../domain/growth_repository.dart';
 // ⚠ 現フェーズ：
 //   ・「ファイルでアップロード」（ギャラリー選択）のみ実装
 //   ・カメラでのアップロードは uploadScreen 側でレイアウトのみ
-//   ・所要時間入力は uploadScreen 側でレイアウトのみ（未接続のため
-//     durationSec は常に null で保存する）
+//   ・所要時間（分・任意入力）は uploadScreen 側でバリデーション済みの
+//     int?（durationMin）として受け取り、そのままファイル名・
+//     GrowthRecordに反映する
+//   ・保持枚数の上限は [GrowthConfig.maxRecordCount]。上限を超えて
+//     アップロードすると最古の1件が自動削除される（Hiveレコード・
+//     画像ファイルの両方）
 // ══════════════════════════════════════════════════════════
 class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
   final GrowthRepository _repository;
@@ -37,15 +41,21 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
   }
 
   /// ギャラリー（ファイル）から画像を選択してアップロードする。
-  /// 選択がキャンセルされた場合は false を返す。
-  Future<bool> uploadFromGallery() async {
+  /// 選択がキャンセルされた場合は null を返す。
+  /// [durationMin] は所要時間（分・任意）。呼び出し側でバリデーション
+  /// 済みの値を渡すこと。
+  ///
+  /// 戻り値は今回のアップロードで保持枚数が上限
+  /// （[GrowthConfig.maxRecordCount]）に「生涯で初めて」到達したかどうか。
+  /// 一度到達した後は、削除して枚数が減り再度上限に達しても false になる
+  /// （特別メッセージは初回到達時のみ表示するため）。
+  Future<bool?> uploadFromGallery({int? durationMin}) async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return false;
-    await _saveRecord(picked);
-    return true;
+    if (picked == null) return null;
+    return _saveRecord(picked, durationMin: durationMin);
   }
 
-  Future<void> _saveRecord(XFile picked) async {
+  Future<bool> _saveRecord(XFile picked, {int? durationMin}) async {
     final now = DateTime.now();
     final date = DateTime(now.year, now.month, now.day);
     final serialNumber = await _repository.nextSerialNumberForDate(date);
@@ -57,6 +67,7 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
     final savedPath = await AppFileUtils.growthImageFilePath(
       date: date,
       serialNumber: serialNumber,
+      durationMin: durationMin,
       extension: extension,
     );
     await File(picked.path).copy(savedPath);
@@ -66,11 +77,24 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
       imagePath: savedPath,
       date: date,
       serialNumber: serialNumber,
-      durationSec: null, // 所要時間入力は現フェーズ未接続
+      durationMin: durationMin,
     );
 
-    await _repository.add(record);
+    final evicted = await _repository.add(record);
+    // 上限超過で自動削除された記録は、Hive上だけでなく画像ファイル
+    // 実体も削除する（GrowthRepository.add はファイルI/Oを行わないため）
+    for (final r in evicted) {
+      final file = File(r.imagePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
     await _loadAll();
+
+    // 「生涯で初めて上限に到達したか」はRepository側の永続フラグで判定する
+    // （現在の生存件数だけでは、削除→再アップロードでの再到達と
+    // 区別できないため）
+    return _repository.checkFirstTimeReachedMax();
   }
 
   /// 指定したidの成長記録をまとめて削除する。
@@ -105,6 +129,13 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
       }
     }
     return successCount;
+  }
+
+  /// 【検証用】保持上限到達フラグをリセットする。
+  /// GrowthConfig.showDebugResetMaxCountReachedButton が true の間のみ、
+  /// UI（成長記録メイン画面）から呼び出される想定。
+  Future<void> resetMaxCountReachedFlag() async {
+    await _repository.resetMaxCountReachedFlag();
   }
 }
 
