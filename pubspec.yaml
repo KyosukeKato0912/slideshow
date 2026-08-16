@@ -48,6 +48,9 @@ dependencies:
   hive_flutter: ^1.1.0
   image_picker: ^1.1.2  # 成長記録：ファイルからのアップロード
   gal: ^2.3.0  # 成長記録：選択画像を端末ギャラリーへ保存
+  pdf: ^3.13.0  # 成長記録：画像一覧PDFの生成
+  printing: ^5.15.0  # 成長記録：生成したPDFの共有・保存（Google Fontsによる日本語フォント取得にも使用）
+  share_plus: ^12.0.2  # 成長記録：選択画像のSNS（X等）共有
 
 dev_dependencies:
   flutter_test:

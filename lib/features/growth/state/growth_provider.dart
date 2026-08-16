@@ -7,6 +7,42 @@ import '../domain/growth_record.dart';
 import '../domain/growth_repository.dart';
 
 // ══════════════════════════════════════════════════════════
+// GrowthMaxCountFlagNotifier / growthMaxCountReachedProvider
+//
+// 保持上限枚数（GrowthConfig.maxRecordCount）に一度でも到達したことが
+// あるかどうかの永続フラグを、UIからリアクティブに参照できるように
+// StateNotifierとして公開する。
+//
+// 実体はGrowthRepository経由でHive（GrowthMetaDataSource）に保存されて
+// いる同じフラグ。GrowthNotifier側のイベント（上限到達・デバッグ用の
+// フラグリセット）が起きた際に、このProviderの state もあわせて
+// 更新することで、AppBarやボタンの表示・非表示をその場で切り替えられる
+// ようにしている。
+// ══════════════════════════════════════════════════════════
+class GrowthMaxCountFlagNotifier extends StateNotifier<bool> {
+  final GrowthRepository _repository;
+
+  GrowthMaxCountFlagNotifier({GrowthRepository? repository})
+      : _repository = repository ?? GrowthRepository(),
+        super(false) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    state = await _repository.hasReachedMaxCountOnce();
+  }
+
+  void markReached() => state = true;
+
+  void reset() => state = false;
+}
+
+final growthMaxCountReachedProvider =
+    StateNotifierProvider<GrowthMaxCountFlagNotifier, bool>((ref) {
+  return GrowthMaxCountFlagNotifier();
+});
+
+// ══════════════════════════════════════════════════════════
 // GrowthNotifier / growthProvider
 //
 // 成長記録リストの状態管理。GrowthMainScreen・UploadScreenの
@@ -17,20 +53,25 @@ import '../domain/growth_repository.dart';
 // GrowthDataSource・Hiveを直接操作しない。
 //
 // ⚠ 現フェーズ：
-//   ・「ファイルでアップロード」（ギャラリー選択）のみ実装
-//   ・カメラでのアップロードは uploadScreen 側でレイアウトのみ
+//   ・「写真で追加」（ギャラリー選択）・「カメラで追加」（撮影）の
+//     両方を実装。picker種別（ImageSource）が異なるだけで、
+//     保存処理（_saveRecord）は共通化している
 //   ・所要時間（分・任意入力）は uploadScreen 側でバリデーション済みの
 //     int?（durationMin）として受け取り、そのままファイル名・
 //     GrowthRecordに反映する
 //   ・保持枚数の上限は [GrowthConfig.maxRecordCount]。上限を超えて
 //     アップロードすると最古の1件が自動削除される（Hiveレコード・
 //     画像ファイルの両方）
+//   ・上限到達時は growthMaxCountReachedProvider の state も更新し、
+//     PDFダウンロードボタンの表示条件（フラグが立っている間のみ表示）
+//     に反映する
 // ══════════════════════════════════════════════════════════
 class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
   final GrowthRepository _repository;
   final ImagePicker _picker = ImagePicker();
+  final Ref _ref;
 
-  GrowthNotifier({GrowthRepository? repository})
+  GrowthNotifier(this._ref, {GrowthRepository? repository})
       : _repository = repository ?? GrowthRepository(),
         super(const []) {
     _loadAll();
@@ -40,7 +81,7 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
     state = await _repository.getAll();
   }
 
-  /// ギャラリー（ファイル）から画像を選択してアップロードする。
+  /// ギャラリー（写真）から画像を選択してアップロードする。
   /// 選択がキャンセルされた場合は null を返す。
   /// [durationMin] は所要時間（分・任意）。呼び出し側でバリデーション
   /// 済みの値を渡すこと。
@@ -49,8 +90,19 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
   /// （[GrowthConfig.maxRecordCount]）に「生涯で初めて」到達したかどうか。
   /// 一度到達した後は、削除して枚数が減り再度上限に達しても false になる
   /// （特別メッセージは初回到達時のみ表示するため）。
-  Future<bool?> uploadFromGallery({int? durationMin}) async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
+  Future<bool?> uploadFromGallery({int? durationMin}) {
+    return _pickAndSave(ImageSource.gallery, durationMin: durationMin);
+  }
+
+  /// カメラを起動して撮影した画像をアップロードする。
+  /// 撮影がキャンセルされた場合は null を返す。
+  /// [durationMin]・戻り値の意味は [uploadFromGallery] と同じ。
+  Future<bool?> uploadFromCamera({int? durationMin}) {
+    return _pickAndSave(ImageSource.camera, durationMin: durationMin);
+  }
+
+  Future<bool?> _pickAndSave(ImageSource source, {int? durationMin}) async {
+    final picked = await _picker.pickImage(source: source);
     if (picked == null) return null;
     return _saveRecord(picked, durationMin: durationMin);
   }
@@ -94,7 +146,11 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
     // 「生涯で初めて上限に到達したか」はRepository側の永続フラグで判定する
     // （現在の生存件数だけでは、削除→再アップロードでの再到達と
     // 区別できないため）
-    return _repository.checkFirstTimeReachedMax();
+    final reachedFirstTime = await _repository.checkFirstTimeReachedMax();
+    if (reachedFirstTime) {
+      _ref.read(growthMaxCountReachedProvider.notifier).markReached();
+    }
+    return reachedFirstTime;
   }
 
   /// 指定したidの成長記録をまとめて削除する。
@@ -136,10 +192,11 @@ class GrowthNotifier extends StateNotifier<List<GrowthRecord>> {
   /// UI（成長記録メイン画面）から呼び出される想定。
   Future<void> resetMaxCountReachedFlag() async {
     await _repository.resetMaxCountReachedFlag();
+    _ref.read(growthMaxCountReachedProvider.notifier).reset();
   }
 }
 
 final growthProvider =
     StateNotifierProvider<GrowthNotifier, List<GrowthRecord>>((ref) {
-  return GrowthNotifier();
+  return GrowthNotifier(ref);
 });

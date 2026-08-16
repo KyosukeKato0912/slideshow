@@ -10,15 +10,14 @@ import '../state/growth_provider.dart';
 //
 // 「戻る」はAppBarの標準戻るボタンで対応。
 //
-// 現フェーズの割り切り：
-//   ・「ファイルでアップロード」…機能する（ギャラリーから画像選択→保存）
-//   ・「カメラでアップロード」　…レイアウトのみ（押下しても保存されない）
+// 「写真で追加」（ギャラリー選択）・「カメラで追加」（撮影）ともに
+// GrowthNotifier（growthProvider）経由で保存する。picker種別が
+// 異なるだけで、以降の保存フロー・エラーハンドリングは共通。
 //
 // 所要時間（任意）入力：
-//   ・半角数字のみ許可（空欄も可）。ファイルでアップロード／
-//     カメラでアップロード（将来実装予定）いずれのボタン押下時にも
-//     バリデーションし、半角数字以外が入力されていればエラーを表示して
-//     処理を中断する。
+//   ・半角数字のみ許可（空欄も可）。写真で追加／カメラで追加
+//     いずれのボタン押下時にもバリデーションし、半角数字以外が
+//     入力されていればエラーを表示して処理を中断する。
 //   ・入力値（分）はそのままGrowthRecord.durationMinとして保存され、
 //     保存ファイル名にも反映される（例：2026-06-01-2枚目-3分.png）。
 //
@@ -57,17 +56,34 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     );
   }
 
-  // TODO: カメラでの撮影→アップロードは image_picker の ImageSource.camera
-  //   実装後に差し替える
-  void _onCameraTap() {
+  Future<void> _onCameraTap() async {
     final input = _durationController.text.trim();
     if (!_isDurationInputValid(input)) {
       _showDurationInvalidError();
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.growthCameraComingSoon)),
-    );
+    final durationMin = input.isEmpty ? null : int.parse(input);
+
+    setState(() => _isUploading = true);
+    try {
+      final result = await ref
+          .read(growthProvider.notifier)
+          .uploadFromCamera(durationMin: durationMin);
+      if (!mounted) return;
+      if (result != null) {
+        Navigator.pushReplacement(
+          context,
+          AppRouter.growthUploadComplete(isMaxCountReached: result),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.growthCameraError)),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
   }
 
   Future<void> _onFileUploadTap() async {
@@ -128,7 +144,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               ),
               const SizedBox(height: 40),
 
-              // ── カメラでアップロード：レイアウトのみ ──
+              // ── カメラで追加：撮影→保存する ──
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.theme,
@@ -139,7 +155,17 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                   ),
                 ),
                 onPressed: _isUploading ? null : _onCameraTap,
-                icon: const Icon(Icons.photo_camera_outlined),
+                icon: _isUploading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(AppColors.theme),
+                        ),
+                      )
+                    : const Icon(Icons.photo_camera_outlined),
                 label: Text(
                   AppStrings.growthCameraUploadButton,
                   style: const TextStyle(fontSize: 16),
@@ -147,7 +173,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               ),
               const SizedBox(height: 16),
 
-              // ── ファイルでアップロード：機能する ──
+              // ── 写真で追加：ギャラリーから選択して保存する ──
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.theme,

@@ -189,6 +189,7 @@ abstract class AppStrings {
   // ── 成長記録 ────────────────────────────────────────────
   static const String growthTitle = '成長記録';
   static const String growthUploadButton = 'イラストを追加';
+  static const String growthSnsButton = 'SNSに投稿';
   static const String growthDownloadButton = 'イラストを保存';
 
   /// アップロード機能が未実装の間、アップロードボタン押下時に表示する案内
@@ -214,6 +215,13 @@ abstract class AppStrings {
   static const String growthDownloadSuccessSuffix = '枚を保存しました';
   static const String growthDownloadFailure = '保存に失敗した画像があります';
 
+  // ── 成長記録：SNS投稿 ──────────────────────────────────
+  /// 共有シートに添付するテキスト（Xの投稿本文の初期値になる）
+  static const String growthSnsShareText = '#イラスト練習 #成長記録';
+
+  /// 共有シートの起動に失敗した場合のSnackBar文言
+  static const String growthSnsShareError = '共有に失敗しました';
+
   // ── 成長記録：絞込 ────────────────────────────────────────
   // model_list_screen.dart の絞込UI（ラベル・クリア文言）に準拠。
   static const String growthFilterDateLabel = '日付';
@@ -221,15 +229,35 @@ abstract class AppStrings {
   static const String growthFilterClear = 'フィルターをクリア';
   static const String growthEmptyFiltered = '条件に一致する画像が見つかりません';
 
+  // ── 成長記録：PDF書き出し ──────────────────────────────
+  static const String growthPdfButton = 'PDFでダウンロード';
+
+  /// PDF書き出し対象が0件（絞込結果を含む）の場合のSnackBar文言
+  static const String growthPdfEmptyError = '書き出せる画像がありません';
+
+  /// PDF生成に失敗した場合のSnackBar文言
+  static const String growthPdfGenerateError = 'PDFの作成に失敗しました';
+
+  /// PDF内の各ページ上部に表示するヘッダー文言
+  static const String growthPdfHeaderTitle = 'あなたの成長記録';
+
+  /// PDF表紙に表示する対象枚数のサフィックス（例：'全12枚'）
+  static const String growthPdfCoverCountPrefix = '全';
+  static const String growthPdfCoverCountSuffix = '枚';
+
+  /// PDFファイル名の先頭（例：'成長記録_2026-06-01.pdf'）
+  static const String growthPdfFileNamePrefix = '成長記録_';
+
   // ── 成長記録：アップロード画面 ──────────────────────────
   static const String growthUploadScreenTitle = 'アップロード';
   static const String growthDurationInputLabel = '所要時間（任意）';
   static const String growthDurationInputUnit = '分';
-  static const String growthCameraUploadButton = 'カメラでアップロード';
-  static const String growthFileUploadButton = 'ファイルでアップロード';
+  static const String growthCameraUploadButton = 'カメラで追加';
+  static const String growthFileUploadButton = 'ファイルで追加';
 
-  /// カメラアップロードが未実装の間、ボタン押下時に表示する案内
-  static const String growthCameraComingSoon = 'カメラでのアップロードは準備中です';
+  /// カメラの起動・撮影に失敗した場合のSnackBar文言
+  /// （権限が許可されていない場合や、端末側のエラーを含む）
+  static const String growthCameraError = 'カメラを起動できませんでした';
 
   /// 所要時間欄に半角数字以外が入力された状態でアップロードボタンが
   /// 押された場合に表示するエラー

@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/config/growth_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_values.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/services/growth_pdf_service.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../shared/components/app_bar_widget.dart';
 import '../domain/growth_record.dart';
@@ -30,7 +34,19 @@ import '../state/growth_provider.dart';
 // フルイメージ表示（AppRouter.growthFullImage）はmodel_list_screen
 // に合わせ、フィルタの影響を受けない全レコードをスワイプ対象として渡す。
 //
-//   SNS投稿・PDF等は次のステップで対応する。
+// PDF書き出し: 下部の「イラストを保存」ボタンの右隣に配置したボタンから、
+// 絞込の影響を受けない全レコードを GrowthPdfService でPDF化し、
+// Printing.sharePdf経由で共有・保存する。
+// このボタンは保持上限到達フラグ（growthMaxCountReachedProvider）が
+// 立っている間のみ表示する（上限に一度も到達していない間は非表示）。
+//
+// SNS投稿: 「イラストを追加」「イラストを保存」の間に配置。
+// 選択中の画像を share_plus の共有シート経由で渡す（本アプリからXへ
+// APIで直接投稿するのではなく、共有シートでXアプリを選ぶとXの投稿画面に
+// 画像・文言が渡った状態で遷移し、実際の投稿操作はX側で行う方式）。
+// イラストを保存ボタンと同様、選択が0件の間はボタンを無効化する。
+//
+//   SNS投稿等は次のステップで対応する。
 //
 // ⚠ 範囲選択の座標→インデックス変換は、GridViewのレイアウト定数
 //   （crossAxisSpacing/mainAxisSpacing/childAspectRatio等）を
@@ -54,6 +70,12 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
   int? _dragAnchorIndex;
 
   bool _isDownloading = false;
+
+  /// SNS共有シート起動中フラグ（多重タップ防止・ローディング表示用）
+  bool _isSharing = false;
+
+  /// PDF生成中フラグ（多重タップ防止・ローディング表示用）
+  bool _isGeneratingPdf = false;
 
   /// 絞込中の日付範囲（null = 絞込なし）
   DateTimeRange? _selectedDateRange;
@@ -175,6 +197,35 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
     }
   }
 
+  // ── SNS投稿（選択中の画像を共有シート経由でXなどへ渡す） ────
+  // 実際の投稿操作はX側アプリで行う（本アプリからは共有シートを開き、
+  // 選択画像とハッシュタグ文言を渡すところまでを担当する）。
+  // 選択状態はここでは解除しない（共有をキャンセルした場合に
+  // 選び直さずに再度共有できるようにするため）。
+  Future<void> _onSnsShareTap(
+    BuildContext context,
+    List<GrowthRecord> records,
+  ) async {
+    if (_selectedIds.isEmpty || _isSharing) return;
+    final targets = records.where((r) => _selectedIds.contains(r.id)).toList();
+    if (targets.isEmpty) return;
+
+    setState(() => _isSharing = true);
+    try {
+      final files = targets.map((r) => XFile(r.imagePath)).toList();
+      await SharePlus.instance.share(
+        ShareParams(files: files, text: AppStrings.growthSnsShareText),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.growthSnsShareError)),
+      );
+    } finally {
+      if (mounted) setState(() => _isSharing = false);
+    }
+  }
+
   Future<void> _onDeleteTap(BuildContext context) async {
     final count = _selectedIds.length;
     final confirmed = await showDialog<bool>(
@@ -207,6 +258,37 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
       _dragAnchorIndex = null;
     });
     await ref.read(growthProvider.notifier).deleteRecords(ids);
+  }
+
+  // ── PDF書き出し（絞込の影響を受けない全件を対象） ─────────
+  Future<void> _onPdfTap(
+    BuildContext context,
+    List<GrowthRecord> records,
+  ) async {
+    if (records.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.growthPdfEmptyError)),
+      );
+      return;
+    }
+    if (_isGeneratingPdf) return;
+
+    setState(() => _isGeneratingPdf = true);
+    try {
+      final bytes = await GrowthPdfService.build(records);
+      if (!mounted) return;
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: GrowthPdfService.buildFileName(DateTime.now()),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.growthPdfGenerateError)),
+      );
+    } finally {
+      if (mounted) setState(() => _isGeneratingPdf = false);
+    }
   }
 
   // ── ローカル座標 → サムネイルのインデックス変換（幾何計算） ──
@@ -309,6 +391,7 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
   Widget build(BuildContext context) {
     final allRecords = ref.watch(growthProvider);
     final records = _applyFilter(allRecords);
+    final hasReachedMaxCount = ref.watch(growthMaxCountReachedProvider);
 
     return Scaffold(
       appBar: _isSelectionMode
@@ -437,7 +520,7 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
                       ),
               ),
 
-              // ── イラストを追加／イラストを保存ボタン ──────────
+              // ── イラストを追加／イラストを保存／PDFでダウンロード ──
               Padding(
                 padding: EdgeInsets.fromLTRB(outerPad, 12, outerPad, 20),
                 child: Row(
@@ -448,18 +531,24 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
                           backgroundColor: AppColors.theme,
                           foregroundColor: Colors.white,
                           minimumSize: const Size(0, 52),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () => _onUploadTap(context),
-                        icon: const Icon(Icons.add_photo_alternate_outlined),
-                        label: Text(
-                          AppStrings.growthUploadButton,
-                          style: const TextStyle(fontSize: 15),
+                        icon: const Icon(Icons.add_photo_alternate_outlined,
+                            size: 20),
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            AppStrings.growthUploadButton,
+                            maxLines: 1,
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
@@ -468,6 +557,44 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
                           disabledBackgroundColor: Colors.grey.shade300,
                           disabledForegroundColor: Colors.grey.shade500,
                           minimumSize: const Size(0, 52),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: (_selectedIds.isEmpty || _isSharing)
+                            ? null
+                            : () => _onSnsShareTap(context, records),
+                        icon: _isSharing
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : const Icon(Icons.ios_share, size: 20),
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            AppStrings.growthSnsButton,
+                            maxLines: 1,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.theme,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          disabledForegroundColor: Colors.grey.shade500,
+                          minimumSize: const Size(0, 52),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
@@ -484,13 +611,59 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
                                       Colors.white),
                                 ),
                               )
-                            : const Icon(Icons.download_outlined),
-                        label: Text(
-                          AppStrings.growthDownloadButton,
-                          style: const TextStyle(fontSize: 15),
+                            : const Icon(Icons.download_outlined, size: 20),
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            AppStrings.growthDownloadButton,
+                            maxLines: 1,
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       ),
                     ),
+                    // ── PDFでダウンロード：保持上限到達フラグが
+                    //    立っている間のみ表示 ──
+                    if (hasReachedMaxCount) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.theme,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey.shade300,
+                            disabledForegroundColor: Colors.grey.shade500,
+                            minimumSize: const Size(0, 52),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: _isGeneratingPdf
+                              ? null
+                              : () => _onPdfTap(context, allRecords),
+                          icon: _isGeneratingPdf
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
+                                )
+                              : const Icon(Icons.picture_as_pdf_outlined,
+                                  size: 20),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              AppStrings.growthPdfButton,
+                              maxLines: 1,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -101,6 +101,12 @@ class GrowthRepository {
     return true;
   }
 
+  /// 保持上限枚数に一度でも到達したことがあるか（現在のフラグ値）。
+  /// [checkFirstTimeReachedMax] と異なり、判定のみで状態を変更しない。
+  Future<bool> hasReachedMaxCountOnce() async {
+    return _metaDataSource.hasReachedMaxCountOnce();
+  }
+
   /// 【検証用】保持上限到達フラグをリセットする。
   Future<void> resetMaxCountReachedFlag() async {
     await _metaDataSource.resetHasReachedMaxCountOnce();
