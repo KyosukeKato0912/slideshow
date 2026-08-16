@@ -44,7 +44,9 @@ import '../state/growth_provider.dart';
 // 選択中の画像を share_plus の共有シート経由で渡す（本アプリからXへ
 // APIで直接投稿するのではなく、共有シートでXアプリを選ぶとXの投稿画面に
 // 画像・文言が渡った状態で遷移し、実際の投稿操作はX側で行う方式）。
-// イラストを保存ボタンと同様、選択が0件の間はボタンを無効化する。
+// 有効化条件は選択中の画像が1件以上4件以下の場合のみ
+// （Xの1投稿に添付できる画像枚数の上限が4枚のため）。
+// 0件、または5件以上選択している間はボタンを無効化する。
 //
 //   SNS投稿等は次のステップで対応する。
 //
@@ -66,6 +68,10 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
   final Set<String> _selectedIds = {};
   final ScrollController _scrollController = ScrollController();
 
+  /// Xへの1投稿で添付できる画像枚数の上限（1〜4枚）。
+  /// SNS投稿ボタンの有効化条件（1件以上4件以下選択中）に使用する。
+  static const int _snsShareMaxCount = 4;
+
   /// ドラッグ選択の起点インデックス（長押し中のみ非null）
   int? _dragAnchorIndex;
 
@@ -81,6 +87,11 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
   DateTimeRange? _selectedDateRange;
 
   bool get _isSelectionMode => _selectedIds.isNotEmpty;
+
+  /// SNS投稿ボタンの有効化条件：選択中が1件以上4件以下
+  /// （Xの1投稿に添付できる画像枚数の上限が4枚のため）
+  bool get _canShareToSns =>
+      _selectedIds.isNotEmpty && _selectedIds.length <= _snsShareMaxCount;
 
   bool get _hasFilter => _selectedDateRange != null;
 
@@ -206,7 +217,7 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
     BuildContext context,
     List<GrowthRecord> records,
   ) async {
-    if (_selectedIds.isEmpty || _isSharing) return;
+    if (!_canShareToSns || _isSharing) return;
     final targets = records.where((r) => _selectedIds.contains(r.id)).toList();
     if (targets.isEmpty) return;
 
@@ -561,7 +572,7 @@ class _GrowthMainScreenState extends ConsumerState<GrowthMainScreen> {
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: (_selectedIds.isEmpty || _isSharing)
+                        onPressed: (!_canShareToSns || _isSharing)
                             ? null
                             : () => _onSnsShareTap(context, records),
                         icon: _isSharing
