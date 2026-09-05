@@ -280,6 +280,20 @@ abstract class AppStrings {
   static const String growthUploadCompleteMaxCountMessage =
       'これで{count}枚達成です！\nこれからも成長の記録を続けていきましょう';
 
+  /// 今日の作業時間合計表示のラベル（合計が1分以上の場合のみ表示）
+  static const String growthUploadCompleteTodayDurationLabel = '今日の作業時間合計：';
+
+  // ── 成長記録：継続カレンダー（アップロード完了画面に表示） ──
+  static const String growthCalendarTitle = '今月の継続カレンダー';
+
+  /// 吹き出し：その日の追加枚数のサフィックス（例：'2枚'）
+  static const String growthTooltipCountSuffix = '枚';
+
+  // カレンダー 曜日ラベル（月曜始まり）
+  static const List<String> growthWeekdays = [
+    '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日',
+  ];
+
   // ── 未実装画面 ──────────────────────────────────────────
   static const String proLessonDescription = 'プロ絵師によるテクニックを学ぶ画面です';
   static const String topicDescription = 'ランダムなお題を生成する画面です';

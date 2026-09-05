@@ -65,6 +65,9 @@ abstract class AppValues {
   /// 継続カレンダー：連続記録が濃い黄色になる日数のしきい値
   static const int habitStreakDarkThresholdDays = 21;
 
+  /// 成長記録 継続カレンダー：連続記録が濃い黄色になる日数のしきい値
+  static const int growthStreakDarkThresholdDays = 21;
+
   // ── Hive typeId 一覧（重複登録防止のため一元管理） ─────
   // GrowthRecord   : typeId = 0  （実装済み）
   // HabitRecord    : typeId = 1  （未実装）

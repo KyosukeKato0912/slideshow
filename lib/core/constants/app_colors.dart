@@ -27,4 +27,10 @@ abstract class AppColors {
   // 1〜20日目：薄い黄色 / 21日目以降：濃い黄色
   static const Color habitStreakLight = Color(0xFFFFF59D); // yellow.shade200
   static const Color habitStreakDark  = Color(0xFFFBC02D); // yellow.shade700
+
+  // 成長記録：継続カレンダー 連続記録の強調色
+  // 習慣化サポートの継続カレンダーと同じ配色ルール（1〜20日目：薄い黄色 /
+  // 21日目以降：濃い黄色）を踏襲する。
+  static const Color growthStreakLight = Color(0xFFFFF59D); // yellow.shade200
+  static const Color growthStreakDark  = Color(0xFFFBC02D); // yellow.shade700
 }
